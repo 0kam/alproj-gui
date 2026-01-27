@@ -1,50 +1,191 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+同期影響レポート
+==================
+バージョン変更: 1.0.1 → 1.1.0 (MINOR: 国際化・地域化原則を追加)
+変更した原則: なし
+追加セクション: VI. 国際化と地域化
+削除セクション: なし
+更新が必要なテンプレート:
+  - .specify/templates/plan-template.md: ⚠ 保留（Constitution Check セクション更新）
+  - .specify/templates/spec-template.md: ✅ 変更不要
+  - .specify/templates/tasks-template.md: ⚠ 保留（Tauri/Frontend タスクタイプ追加）
+保留TODO: なし
+-->
 
-## Core Principles
+# ALPROJ GUI 憲法
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+## 基本原則
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### I. ユーザー中心設計
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+すべての機能は非技術者（研究者から自治体職員まで）向けに設計しなければならない（MUST）。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+- メインUIはステップバイステップのウィザード形式でわかりやすくすること（MUST）
+- 詳細オプションはアクセス可能だが、デフォルトでは非表示にすること（MUST）
+- エラーメッセージは人間が読める形式で、対処法を提示すること（MUST）
+- 長時間かかる処理には進捗インジケーターを表示すること（MUST）
+- 日本語対応は必須、英語対応は任意
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+**根拠**: 対象ユーザーは Python コマンドを使えない。普通のデスクトップソフトウェアのように
+感じられる必要がある。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### II. レイヤー分離アーキテクチャ
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+システムは各レイヤー間の厳密な分離を維持しなければならない（MUST）。
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+```
+┌─────────────────────────────────────┐
+│  Tauri シェル (Rust)                │  ← ウィンドウ管理、IPC、パッケージング
+├─────────────────────────────────────┤
+│  フロントエンド (TypeScript + UI)    │  ← ユーザーインターフェース、状態管理
+├─────────────────────────────────────┤
+│  バックエンド API (Python + FastAPI) │  ← ビジネスロジック統合
+├─────────────────────────────────────┤
+│  コアライブラリ (alproj + 拡張)      │  ← アルゴリズム、計算処理
+└─────────────────────────────────────┘
+```
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- 各レイヤーは隣接レイヤーとのみ通信すること（MUST）
+- コアライブラリは UI や API レイヤーに依存しないこと（MUST）
+- フロントエンドは Python コードを直接呼び出さないこと（常に API 経由）（MUST）
+- 新機能は Core → API → UI の順で実装すること（MUST）
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+**根拠**: 独立したテスト、UIフレームワークの置き換え、将来のWeb展開をコア変更なしで可能にする。
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### III. 非同期処理優先
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+計算負荷の高い処理はすべて非同期で実行しなければならない（MUST）。
+
+- 画像処理、最適化、GeoTIFF生成は UI をブロックしないこと（MUST）
+- バックエンドはジョブキューを提供し、ステータスポーリングまたは WebSocket 更新に対応すること（MUST）
+- UI は進捗率を表示し、可能な場合はキャンセルを許可すること（MUST）
+- 失敗したジョブはデバッグ用にエラー詳細を保持すること（MUST）
+
+**根拠**: alproj の処理（GCPマッチング、CMA-ES最適化）は数分かかることがある。
+UIをブロックするとクラッシュしたように見える。
+
+### IV. 拡張性を考慮した設計
+
+アーキテクチャは既存コードを変更せずに新機能を追加できるようにすること（MUST）。
+
+- 新しい解析モジュールは別の Python パッケージとして追加可能にすること（MUST）
+- UI ページは設定で登録可能にし、ハードコードしないこと（MUST）
+- プロジェクトファイル形式はバージョン管理し、後方互換性を維持すること（MUST）
+- プラグインインターフェースはサードパーティ拡張用に定義すべき（SHOULD）（将来）
+
+**計画中の拡張機能**:
+- 画像内容からのカメラ位置推定
+- 定点カメラの時系列位置合わせ
+- 植生変化検出と解析
+
+**根拠**: プロジェクトは成長する。今の密結合は技術的負債になる。
+
+### V. クロスプラットフォーム配布
+
+アプリケーションはすべての主要プラットフォーム向けにネイティブインストーラーとして
+配布可能でなければならない（MUST）。
+
+- macOS: 署名・公証済みの .dmg または .app
+- Windows: 署名済みの .msi または .exe インストーラー
+- Linux: AppImage または .deb（優先度低）
+
+配布要件:
+- エンドユーザーに Python インストールを要求しないこと（MUST）
+- 通常使用でコマンドライン操作を要求しないこと（MUST）
+- 自動更新チェックに対応すべき（SHOULD）（初期は手動ダウンロードでも可）
+- インストーラーサイズ目標: 500MB 未満
+
+**根拠**: 非技術者はダブルクリックでインストールできることを期待する。
+
+### VI. 国際化と地域化
+
+アプリケーションは日本語をデフォルトとしつつ、将来の多言語化に対応できる構造にすること（MUST）。
+
+**言語**:
+- UI テキストはすべて日本語で提供すること（MUST）
+- テキストはソースコードにハードコードせず、翻訳ファイル（JSON/YAML）で管理すること（MUST）
+- 翻訳キーは意味のある階層構造にすること（例: `wizard.step1.title`）（MUST）
+- 将来の多言語対応時に、翻訳ファイル追加のみで新言語をサポートできること（MUST）
+- エラーメッセージ、ヘルプテキスト、ツールチップも翻訳対象に含めること（MUST）
+
+**時刻と日付**:
+- 内部データ（API、ファイル保存）は UTC で扱うこと（MUST）
+- UI 表示時はユーザーのローカルタイムゾーン（デフォルト: Asia/Tokyo）に変換すること（MUST）
+- 日付フォーマットは `YYYY-MM-DD`、日時フォーマットは `YYYY-MM-DD HH:mm:ss` を基本とすること（SHOULD）
+- 撮影日時など元データのタイムゾーンが不明な場合は、ユーザーに確認または仮定を明示すること（MUST）
+
+**数値と単位**:
+- 座標系は EPSG コードで明示すること（MUST）
+- 距離・面積の単位はメートル法を基本とし、必要に応じて表示単位を切り替え可能にすべき（SHOULD）
+
+**根拠**: 主要ユーザーは日本国内だが、将来的な国際展開や英語ドキュメントの必要性に備える。
+i18n 対応を後から追加するのは大きなリファクタリングになるため、最初から構造化しておく。
+
+## 技術スタック
+
+| レイヤー | 技術 | 選定理由 |
+|----------|------|----------|
+| シェル | Tauri 2.x | 軽量、安全、Rust製、サイドカー対応 |
+| フロントエンド | Svelte + Tailwind CSS | シンプル、高速、良好なDX、小バンドル |
+| バックエンド | Python 3.11+ + FastAPI | alproj互換、非同期対応 |
+| パッケージング | PyInstaller（サイドカー） | Python ランタイムと依存関係をバンドル |
+| コア | alproj ライブラリ | 既存のジオレクティフィケーション機能 |
+| ビルド | GitHub Actions | マルチプラットフォームビルド用 CI/CD |
+
+### フロントエンドフレームワーク選定理由
+
+Svelte を React/Vue より優先した理由:
+- バンドルサイズが小さい（デスクトップアプリで重要）
+- シンプルなメンタルモデル（ボイラープレートが少ない）
+- 組み込みの状態管理
+- 良好な TypeScript サポート
+
+チームの専門性が他のフレームワークを強く支持する場合、この決定は見直してもよい（MAY）。
+
+## 開発ワークフロー
+
+### ブランチ戦略
+
+- `main`: 安定版リリースのみ
+- `develop`: 統合ブランチ
+- `feature/*`: 新機能
+- `fix/*`: バグ修正
+
+### 品質ゲート
+
+`develop` へのマージ前:
+1. すべてのテストが通過（Python ユニットテスト、フロントエンドテスト、統合テスト）
+2. 型チェックが通過（Python は mypy、TypeScript は strict モード）
+3. リントが通過（Python は ruff、TypeScript は ESLint）
+4. 影響を受ける UI フローの手動テスト
+
+リリース前:
+1. 上記すべての品質ゲート
+2. クロスプラットフォームビルド成功
+3. クリーンマシンでのインストールテスト
+4. コアワークフローの手動検証
+
+### ドキュメント要件
+
+- API エンドポイントは OpenAPI ドキュメントを持つこと（MUST）
+- UI コンポーネントは Storybook ストーリーを持つべき（SHOULD）（初期は任意）
+- ユーザー向け機能は日本語ヘルプテキストを持つこと（MUST）
+- アーキテクチャ決定は ADR 形式で記録すべき（SHOULD）
+
+## ガバナンス
+
+この憲法はこのプロジェクトの他のすべての開発慣行に優先する。
+
+**改訂プロセス**:
+1. GitHub Issue で変更を理由とともに提案
+2. 既存コードとテンプレートへの影響を議論
+3. バージョンを上げて憲法を更新
+4. 影響を受けるテンプレートとコードを更新
+5. 破壊的変更の場合は移行手順を文書化
+
+**コンプライアンス**:
+- すべての PR は該当する憲法原則を参照すること（MUST）
+- 違反は PR 説明で解決計画とともに正当化すること（MUST）
+- 主要なアーキテクチャ変更はまずこの憲法を更新すること（MUST）
+
+**バージョン**: 1.1.0 | **制定日**: 2025-01-27 | **最終改訂日**: 2025-01-27
