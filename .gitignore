@@ -83,6 +83,8 @@ frontend/.svelte-kit/
 backend/dist/
 backend/build/
 *.spec
+src-tauri/binaries/sidecar-*/
+src-tauri/binaries/backend-sidecar-*
 
 # Bundled models (downloaded at build time)
 backend/models/
