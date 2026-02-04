@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+  :root {
+    --app-bg: #f3f6fa;
+    --app-bg-strong: #eef3f8;
+    --ink-900: #0b2333;
+    --ink-700: #2a485c;
+    --ink-500: #607386;
+    --brand-700: #0a4f87;
+    --brand-600: #0b63a8;
+    --brand-500: #2b8fc8;
+    --brand-200: #c1ddf1;
+    --line: rgba(11, 35, 51, 0.12);
+    --glass: rgba(255, 255, 255, 0.78);
+    --glass-strong: rgba(255, 255, 255, 0.92);
+    --shadow-soft: 0 10px 30px rgba(11, 35, 51, 0.08);
+    --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink-900);
+    background-color: var(--app-bg);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1200px 800px at 20% -10%, rgba(12, 92, 155, 0.09), transparent 65%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cg fill='none' stroke='rgb(11,35,51)' stroke-opacity='0.2' stroke-width='1.2'%3E%3Cpath d='M20 120 C120 40 220 40 320 120 C420 200 520 200 580 140'/%3E%3Cpath d='M40 220 C140 140 240 140 340 220 C440 300 540 300 600 240'/%3E%3Cpath d='M0 320 C100 260 220 260 320 320 C420 380 520 380 600 340'/%3E%3Cpath d='M40 420 C140 360 260 360 360 420 C460 480 560 480 620 440'/%3E%3Cpath d='M0 520 C120 470 240 470 360 520 C480 570 600 570 700 520'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: no-repeat, repeat;
+    background-size: 1200px 800px, 600px 600px;
+    background-position: top left, center;
+    opacity: 0.6;
+  }
+
+  /* Focus ring styles for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  h1,
+  h2,
+  h3,
+  .display-text {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2
+           font-medium rounded-md transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700
+           focus:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200
+           focus:ring-gray-500;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700
+           focus:ring-red-500;
+  }
+
+  /* Card styles */
+  .card {
+    @apply rounded-xl p-6;
+    background-color: var(--glass);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(10px);
+  }
+
+  /* Input styles */
+  .input {
+    @apply block w-full rounded-md border-gray-300
+           shadow-sm focus:border-primary-500 focus:ring-primary-500;
+  }
+
+  /* Label styles */
+  .label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+}
+
+/* Custom utility styles */
+@layer utilities {
+  /* Map container needs explicit height */
+  .map-container {
+    @apply w-full h-full min-h-[400px];
+  }
+
+  /* Wizard step indicator */
+  .step-indicator {
+    @apply flex items-center justify-center w-8 h-8 rounded-full
+           text-sm font-medium;
+  }
+
+  .step-indicator-active {
+    @apply step-indicator bg-primary-600 text-white shadow-md;
+  }
+
+  .step-indicator-completed {
+    @apply step-indicator bg-accent-500 text-white shadow-sm;
+  }
+
+  .step-indicator-pending {
+    @apply step-indicator bg-primary-100 text-primary-600;
+  }
+}

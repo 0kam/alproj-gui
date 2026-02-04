@@ -1,0 +1,800 @@
+openapi: 3.1.0
+info:
+  title: ALPROJ GUI Backend API
+  version: 1.0.0
+  description: |
+    景観写真オルソ化アプリのバックエンド API。
+    フロントエンド（Svelte）から呼び出される。
+
+servers:
+  - url: http://localhost:{port}
+    description: ローカルサイドカーサーバー
+    variables:
+      port:
+        default: "8765"
+
+tags:
+  - name: projects
+    description: プロジェクト管理
+  - name: files
+    description: ファイル操作
+  - name: georectify
+    description: オルソ化処理
+  - name: jobs
+    description: ジョブ管理
+
+paths:
+  /api/health:
+    get:
+      summary: ヘルスチェック
+      operationId: healthCheck
+      responses:
+        "200":
+          description: サーバー稼働中
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # === Projects ===
+  /api/projects:
+    get:
+      tags: [projects]
+      summary: プロジェクト一覧取得
+      operationId: listProjects
+      responses:
+        "200":
+          description: プロジェクト一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSummary"
+
+    post:
+      tags: [projects]
+      summary: 新規プロジェクト作成
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /api/projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [projects]
+      summary: プロジェクト詳細取得
+      operationId: getProject
+      responses:
+        "200":
+          description: プロジェクト詳細
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [projects]
+      summary: プロジェクト更新
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+    delete:
+      tags: [projects]
+      summary: プロジェクト削除
+      operationId: deleteProject
+      responses:
+        "204":
+          description: 削除成功
+
+  /api/projects/open:
+    post:
+      tags: [projects]
+      summary: プロジェクトファイルを開く
+      operationId: openProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: .alproj ファイルパス
+      responses:
+        "200":
+          description: 読み込み成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/projects/{projectId}/save:
+    post:
+      tags: [projects]
+      summary: プロジェクトをファイルに保存
+      operationId: saveProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: 保存先パス
+      responses:
+        "200":
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+
+  # === Files ===
+  /api/files/raster/info:
+    post:
+      tags: [files]
+      summary: ラスタファイル情報取得
+      operationId: getRasterInfo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+      responses:
+        "200":
+          description: ファイル情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RasterFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/files/image/info:
+    post:
+      tags: [files]
+      summary: 画像ファイル情報取得
+      operationId: getImageInfo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+      responses:
+        "200":
+          description: ファイル情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageFile"
+
+  /api/files/raster/thumbnail:
+    post:
+      tags: [files]
+      summary: ラスタサムネイル取得
+      operationId: getRasterThumbnail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                max_size:
+                  type: integer
+                  default: 512
+      responses:
+        "200":
+          description: サムネイル画像
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  # === Georectify ===
+  /api/georectify/simulate:
+    post:
+      tags: [georectify]
+      summary: シミュレーション画像生成
+      operationId: generateSimulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationRequest"
+      responses:
+        "200":
+          description: シミュレーション画像
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationResponse"
+
+  /api/georectify/process:
+    post:
+      tags: [georectify]
+      summary: オルソ化処理開始
+      operationId: startProcessing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessRequest"
+      responses:
+        "202":
+          description: 処理開始（ジョブ作成）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /api/georectify/export:
+    post:
+      tags: [georectify]
+      summary: GeoTIFF エクスポート
+      operationId: exportGeoTiff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: エクスポート完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+
+  # === Jobs ===
+  /api/jobs/{jobId}:
+    get:
+      tags: [jobs]
+      summary: ジョブ状態取得
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: ジョブ状態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+    delete:
+      tags: [jobs]
+      summary: ジョブキャンセル
+      operationId: cancelJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: キャンセル成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /api/jobs/{jobId}/ws:
+    get:
+      tags: [jobs]
+      summary: ジョブ進捗 WebSocket
+      description: |
+        WebSocket 接続で進捗を受信。
+        メッセージ形式: {"progress": 0.5, "step": "matching", "message": "..."}
+      operationId: jobWebSocket
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "101":
+          description: WebSocket 接続
+
+components:
+  schemas:
+    # === Project ===
+    ProjectSummary:
+      type: object
+      required: [id, name, status, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        updated_at:
+          type: string
+          format: date-time
+
+    Project:
+      type: object
+      required: [id, version, name, status, created_at, updated_at, input_data]
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+          example: "1.0.0"
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        input_data:
+          $ref: "#/components/schemas/InputData"
+        camera_params:
+          $ref: "#/components/schemas/CameraParams"
+        camera_simulation:
+          type: string
+          nullable: true
+          description: Camera setup simulation preview image (data URL/base64)
+        process_result:
+          $ref: "#/components/schemas/ProcessResult"
+
+    ProjectStatus:
+      type: string
+      enum: [draft, processing, completed, error]
+
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        input_data:
+          $ref: "#/components/schemas/InputData"
+        camera_params:
+          $ref: "#/components/schemas/CameraParams"
+        camera_simulation:
+          type: string
+          nullable: true
+          description: Camera setup simulation preview image (data URL/base64)
+
+    # === Input Data ===
+    InputData:
+      type: object
+      properties:
+        dsm:
+          $ref: "#/components/schemas/RasterFile"
+        ortho:
+          $ref: "#/components/schemas/RasterFile"
+        target_image:
+          $ref: "#/components/schemas/ImageFile"
+
+    RasterFile:
+      type: object
+      required: [path, crs, bounds, resolution, size]
+      properties:
+        path:
+          type: string
+        crs:
+          type: string
+          example: "EPSG:6690"
+        bounds:
+          type: array
+          items:
+            type: number
+          minItems: 4
+          maxItems: 4
+          description: "[xmin, ymin, xmax, ymax]"
+        resolution:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+        size:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+          description: "[width, height]"
+
+    ImageFile:
+      type: object
+      required: [path, size]
+      properties:
+        path:
+          type: string
+        size:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+        exif:
+          $ref: "#/components/schemas/ExifData"
+
+    ExifData:
+      type: object
+      properties:
+        datetime:
+          type: string
+          format: date-time
+        gps_lat:
+          type: number
+        gps_lon:
+          type: number
+        gps_alt:
+          type: number
+        focal_length:
+          type: number
+        camera_model:
+          type: string
+
+    # === Camera Params ===
+    CameraParams:
+      type: object
+      properties:
+        initial:
+          $ref: "#/components/schemas/CameraParamsValues"
+        optimized:
+          $ref: "#/components/schemas/CameraParamsValues"
+
+    CameraParamsValues:
+      type: object
+      required: [x, y, z, fov, pan, tilt, roll]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+        fov:
+          type: number
+          minimum: 1
+          maximum: 180
+        pan:
+          type: number
+          minimum: 0
+          maximum: 360
+        tilt:
+          type: number
+          minimum: -90
+          maximum: 90
+        roll:
+          type: number
+          minimum: -180
+          maximum: 180
+        a1:
+          type: number
+          default: 1
+        a2:
+          type: number
+          default: 1
+        k1:
+          type: number
+          default: 0
+        k2:
+          type: number
+          default: 0
+        k3:
+          type: number
+          default: 0
+        k4:
+          type: number
+          default: 0
+        k5:
+          type: number
+          default: 0
+        k6:
+          type: number
+          default: 0
+        p1:
+          type: number
+          default: 0
+        p2:
+          type: number
+          default: 0
+        s1:
+          type: number
+          default: 0
+        s2:
+          type: number
+          default: 0
+        s3:
+          type: number
+          default: 0
+        s4:
+          type: number
+          default: 0
+        cx:
+          type: number
+        cy:
+          type: number
+
+    # === Process Result ===
+    ProcessResult:
+      type: object
+      properties:
+        gcps:
+          type: array
+          items:
+            $ref: "#/components/schemas/GCP"
+        metrics:
+          $ref: "#/components/schemas/ProcessMetrics"
+        geotiff_path:
+          type: string
+        log:
+          type: array
+          items:
+            type: string
+
+    GCP:
+      type: object
+      required: [id, image_x, image_y, geo_x, geo_y, geo_z, enabled]
+      properties:
+        id:
+          type: integer
+        image_x:
+          type: number
+        image_y:
+          type: number
+        geo_x:
+          type: number
+        geo_y:
+          type: number
+        geo_z:
+          type: number
+        residual:
+          type: number
+        enabled:
+          type: boolean
+          default: true
+
+    ProcessMetrics:
+      type: object
+      required: [rmse, gcp_count, gcp_total]
+      properties:
+        rmse:
+          type: number
+        gcp_count:
+          type: integer
+        gcp_total:
+          type: integer
+        residual_mean:
+          type: number
+        residual_std:
+          type: number
+        residual_max:
+          type: number
+
+    # === Simulation ===
+    SimulationRequest:
+      type: object
+      required: [dsm_path, ortho_path, target_image_path, camera_params]
+      properties:
+        dsm_path:
+          type: string
+        ortho_path:
+          type: string
+        target_image_path:
+          type: string
+        camera_params:
+          $ref: "#/components/schemas/CameraParamsValues"
+        max_size:
+          type: integer
+          default: 800
+          description: 出力画像の最大サイズ
+
+    SimulationResponse:
+      type: object
+      required: [image_base64]
+      properties:
+        image_base64:
+          type: string
+          description: Base64 エンコードされた PNG 画像
+
+    # === Process ===
+    ProcessRequest:
+      type: object
+      required: [project_id]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        options:
+          $ref: "#/components/schemas/ProcessOptions"
+
+    ProcessOptions:
+      type: object
+      properties:
+        matching_method:
+          type: string
+          enum: [akaze, sift, roma, loftr]
+          default: akaze
+        optimizer:
+          type: string
+          enum: [cma, lsq]
+          default: cma
+        max_generations:
+          type: integer
+          default: 300
+        min_gcp_distance:
+          type: number
+          default: 100
+          description: カメラからの最小 GCP 距離 (m)
+
+    # === Export ===
+    ExportRequest:
+      type: object
+      required: [project_id, output_path]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        output_path:
+          type: string
+        resolution:
+          type: number
+          default: 1.0
+          description: 出力解像度 (m/pixel)
+        crs:
+          type: string
+          default: "EPSG:6690"
+        interpolate:
+          type: boolean
+          default: true
+
+    # === Job ===
+    Job:
+      type: object
+      required: [id, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+        step:
+          type: string
+          description: 現在のステップ名
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        error:
+          type: string
+        result:
+          $ref: "#/components/schemas/ProcessResult"
+
+  responses:
+    NotFound:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              detail:
+                type: string
+
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              detail:
+                type: string

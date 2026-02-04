@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "saved_at": "2026-01-28T06:17:10.982649+00:00",
+  "project": {
+    "id": "d109a2cb-41ed-42de-aef3-e9c4e78908d9",
+    "version": "1.0.0",
+    "name": "Untitled Project",
+    "status": "draft",
+    "created_at": "2026-01-28T06:16:14.416163Z",
+    "updated_at": "2026-01-28T06:16:14.416163Z",
+    "input_data": {
+      "dsm": null,
+      "ortho": null,
+      "target_image": null
+    },
+    "camera_params": null,
+    "process_result": null
+  }
+}

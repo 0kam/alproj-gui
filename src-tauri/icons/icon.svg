@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="250" fill="#1a365d"/>
+
+  <!-- Mountain silhouette -->
+  <path d="M48 384 L176 176 L240 256 L320 128 L464 384 Z" fill="#4a90a4"/>
+  <path d="M80 384 L192 224 L256 304 L352 160 L432 384 Z" fill="#2d5a6b"/>
+
+  <!-- Snow caps -->
+  <path d="M176 176 L208 224 L144 224 Z" fill="#ffffff" opacity="0.9"/>
+  <path d="M320 128 L368 200 L272 200 Z" fill="#ffffff" opacity="0.9"/>
+
+  <!-- Sun/Camera lens -->
+  <circle cx="400" cy="128" r="40" fill="#f6ad55" opacity="0.9"/>
+
+  <!-- Camera frame lines -->
+  <rect x="72" y="72" width="368" height="368" rx="8" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.3"/>
+
+  <!-- Crosshair (center marker) -->
+  <line x1="256" y1="200" x2="256" y2="240" stroke="#ffffff" stroke-width="2" opacity="0.5"/>
+  <line x1="236" y1="220" x2="276" y2="220" stroke="#ffffff" stroke-width="2" opacity="0.5"/>
+</svg>

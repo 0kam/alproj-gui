@@ -1,0 +1,88 @@
+# Development data (large files)
+devel_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node.js / TypeScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Rust / Tauri
+target/
+*.rs.bk
+*.rlib
+Cargo.lock
+
+# Build outputs
+*.log
+*.tmp
+*.temp
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+
+# Tauri build artifacts
+src-tauri/target/
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.svelte-kit/
+
+# Backend sidecar
+backend/dist/
+backend/build/
+*.spec
+
+# Bundled models (downloaded at build time)
+backend/models/
