@@ -151,7 +151,7 @@ class EstimationResult(BaseModel):
     simulation: str | None = Field(default=None, description="Estimation simulation data URL")
     log: list[str] = Field(default_factory=list, description="Estimation log")
     params: EstimationParams | None = Field(default=None, description="Estimation parameters")
-    optimized_params: "CameraParamsValues" | None = Field(
+    optimized_params: CameraParamsValues | None = Field(
         default=None, description="Optimized camera parameters"
     )
 
