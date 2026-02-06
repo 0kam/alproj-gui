@@ -10,6 +10,8 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
 use tokio::time::{sleep, Duration};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 /// Backend configuration
 const BACKEND_HOST: &str = "127.0.0.1";
@@ -17,6 +19,8 @@ const BACKEND_PORT: u16 = 8765;
 const HEALTH_CHECK_URL: &str = "http://127.0.0.1:8765/api/health";
 const HEALTH_CHECK_TIMEOUT_SECS: u64 = 180;
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Enum to hold different types of process handles
 pub enum ProcessHandle {
@@ -242,12 +246,18 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
 
         // Start the sidecar process
         // Must run from sidecar_dir so it can find _internal
-        let child = Command::new(&sidecar_path)
+        let mut command = Command::new(&sidecar_path);
+        command
             .args(["--host", BACKEND_HOST, "--port", &BACKEND_PORT.to_string()])
             .current_dir(&sidecar_dir)
             // Avoid deadlock from unread stdout/stderr pipes in GUI mode.
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null());
+
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let child = command
             .spawn()
             .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 

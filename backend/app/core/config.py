@@ -6,6 +6,7 @@ All settings have sensible defaults for development.
 
 from functools import lru_cache
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Literal
 
 from pydantic import Field
@@ -49,7 +50,7 @@ class Settings(BaseSettings):
 
     # Temporary files
     temp_dir: Path = Field(
-        default=Path("/tmp/alproj-gui"),
+        default=Path(gettempdir()) / "alproj-gui",
         description="Directory for temporary files",
     )
 

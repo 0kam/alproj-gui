@@ -6,7 +6,7 @@
  */
 
 // Default API configuration
-const DEFAULT_BASE_URL = 'http://localhost:8765';
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8765';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 /**
