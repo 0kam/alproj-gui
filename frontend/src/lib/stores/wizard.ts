@@ -477,7 +477,28 @@ function createWizardStore() {
 			};
 
 			const cameraParams = project.camera_params?.initial ?? project.camera_params?.optimized ?? null;
-			const estimatedParams = project.camera_params?.optimized ?? null;
+			const estimatedParams =
+				project.estimation_result?.optimized_params ?? project.camera_params?.optimized ?? null;
+			const matchingResult = project.matching_result ?? null;
+			const estimationResult = project.estimation_result ?? null;
+			const hasMatchingResult = Boolean(
+				matchingResult &&
+					(
+						matchingResult.match_plot ||
+						(matchingResult.log && matchingResult.log.length > 0) ||
+						matchingResult.match_count != null ||
+						matchingResult.params
+					)
+			);
+			const hasEstimationResult = Boolean(
+				estimationResult &&
+					(
+						estimationResult.simulation ||
+						(estimationResult.log && estimationResult.log.length > 0) ||
+						estimationResult.optimized_params ||
+						estimationResult.params
+					)
+			);
 
 			const steps = DEFAULT_STEPS.map((step) => ({ ...step }));
 			const hasInput = Boolean(inputData.dsm && inputData.ortho && inputData.targetImage);
@@ -487,10 +508,14 @@ function createWizardStore() {
 			if (hasInput && cameraParams) {
 				steps[1].completed = true;
 			}
-			if (project.process_result) {
-				for (let i = 2; i < steps.length; i += 1) {
-					steps[i].completed = true;
-				}
+			if (hasMatchingResult || project.process_result) {
+				steps[2].completed = true;
+			}
+			if (hasEstimationResult || project.process_result || estimatedParams) {
+				steps[3].completed = true;
+			}
+			if (project.process_result?.geotiff_path) {
+				steps[4].completed = true;
 			}
 
 			const nextStepIndex = steps.findIndex((step) => !step.completed);
@@ -505,6 +530,13 @@ function createWizardStore() {
 				cameraParams,
 				estimatedParams,
 				cameraSimulation: project.camera_simulation ?? null,
+				matchingPlot: matchingResult?.match_plot ?? null,
+				matchingLog: matchingResult?.log ?? [],
+				matchCount: matchingResult?.match_count ?? null,
+				matchingParams: matchingResult?.params ?? null,
+				estimationSimulation: estimationResult?.simulation ?? null,
+				estimationLog: estimationResult?.log ?? [],
+				estimationParams: estimationResult?.params ?? null,
 				processResult: project.process_result ?? null,
 				geotiffPath: project.process_result?.geotiff_path ?? null
 			});

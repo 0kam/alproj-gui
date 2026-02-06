@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -94,6 +94,64 @@ class Project(BaseModel):
     process_result: Optional["ProcessResult"] = Field(
         default=None, description="Processing results if completed"
     )
+    matching_result: Optional["MatchingResult"] = Field(
+        default=None, description="Step 3 matching result and options"
+    )
+    estimation_result: Optional["EstimationResult"] = Field(
+        default=None, description="Step 4 estimation result and options"
+    )
+
+
+class MatchingParams(BaseModel):
+    """Matching step parameters persisted in project files."""
+
+    matching_method: str = Field(..., description="Image matching method")
+    resize: int | str | None = Field(default=None, description="Resize setting")
+    threshold: float | None = Field(default=None, description="Matching threshold")
+    outlier_filter: str | None = Field(default=None, description="Outlier filter type")
+    spatial_thin_grid: int | None = Field(default=None, description="Spatial thinning grid")
+    spatial_thin_selection: str | None = Field(
+        default=None, description="Spatial thinning selection strategy"
+    )
+    surface_distance: float | None = Field(default=None, description="Surface distance")
+    simulation_min_distance: float | None = Field(
+        default=None, description="Minimum simulation distance"
+    )
+    match_id: str | None = Field(default=None, description="Cached match id")
+
+
+class MatchingResult(BaseModel):
+    """Matching step output persisted in project files."""
+
+    match_plot: str | None = Field(default=None, description="Matching plot data URL")
+    log: list[str] = Field(default_factory=list, description="Matching log")
+    match_count: int | None = Field(default=None, description="Matching point count")
+    params: MatchingParams | None = Field(default=None, description="Matching parameters")
+
+
+class EstimationParams(BaseModel):
+    """Estimation step parameters persisted in project files."""
+
+    optimizer: Literal["cma", "lsq"] | None = Field(
+        default=None, description="Optimization method"
+    )
+    min_gcp_distance: float | None = Field(default=None, description="Minimum GCP distance")
+    two_stage: bool | None = Field(default=None, description="Two-stage estimation enabled")
+    optimize_position: bool | None = Field(default=None, description="Optimize position")
+    optimize_orientation: bool | None = Field(default=None, description="Optimize orientation")
+    optimize_fov: bool | None = Field(default=None, description="Optimize field of view")
+    optimize_distortion: bool | None = Field(default=None, description="Optimize distortion")
+
+
+class EstimationResult(BaseModel):
+    """Estimation step output persisted in project files."""
+
+    simulation: str | None = Field(default=None, description="Estimation simulation data URL")
+    log: list[str] = Field(default_factory=list, description="Estimation log")
+    params: EstimationParams | None = Field(default=None, description="Estimation parameters")
+    optimized_params: "CameraParamsValues" | None = Field(
+        default=None, description="Optimized camera parameters"
+    )
 
 
 class CreateProjectRequest(BaseModel):
@@ -118,11 +176,19 @@ class UpdateProjectRequest(BaseModel):
     process_result: Optional["ProcessResult"] = Field(
         default=None, description="Updated processing results"
     )
+    matching_result: Optional["MatchingResult"] = Field(
+        default=None, description="Updated matching step result"
+    )
+    estimation_result: Optional["EstimationResult"] = Field(
+        default=None, description="Updated estimation step result"
+    )
 
 
 # Avoid circular imports by using forward references
 from app.schemas.camera import CameraParams  # noqa: E402
+from app.schemas.camera import CameraParamsValues  # noqa: E402
 from app.schemas.gcp import ProcessResult  # noqa: E402
 
 Project.model_rebuild()
 UpdateProjectRequest.model_rebuild()
+EstimationResult.model_rebuild()

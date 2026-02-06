@@ -36,6 +36,8 @@ export interface Project {
 	camera_params?: CameraParams | null;
 	camera_simulation?: string | null;
 	process_result?: ProcessResult | null;
+	matching_result?: ProjectMatchingResult | null;
+	estimation_result?: ProjectEstimationResult | null;
 }
 
 /**
@@ -54,6 +56,28 @@ export interface UpdateProjectRequest {
 	camera_params?: CameraParams | null;
 	camera_simulation?: string | null;
 	process_result?: ProcessResult | null;
+	matching_result?: ProjectMatchingResult | null;
+	estimation_result?: ProjectEstimationResult | null;
+}
+
+/**
+ * Persisted matching step data in project files
+ */
+export interface ProjectMatchingResult {
+	match_plot?: string | null;
+	log?: string[];
+	match_count?: number | null;
+	params?: MatchingParams | null;
+}
+
+/**
+ * Persisted estimation step data in project files
+ */
+export interface ProjectEstimationResult {
+	simulation?: string | null;
+	log?: string[];
+	params?: EstimationParams | null;
+	optimized_params?: CameraParamsValues | null;
 }
 
 // === Input Data ===

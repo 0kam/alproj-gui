@@ -54,7 +54,19 @@
 				: state.estimatedParams
 					? { optimized: state.estimatedParams }
 					: null,
-			process_result: state.processResult ?? null
+			process_result: state.processResult ?? null,
+			matching_result: {
+				match_plot_len: state.matchingPlot?.length ?? 0,
+				log: state.matchingLog ?? [],
+				match_count: state.matchCount ?? null,
+				params: state.matchingParams ?? null
+			},
+			estimation_result: {
+				simulation_len: state.estimationSimulation?.length ?? 0,
+				log: state.estimationLog ?? [],
+				params: state.estimationParams ?? null,
+				optimized_params: state.estimatedParams ?? null
+			}
 		};
 
 		return JSON.stringify(snapshot);

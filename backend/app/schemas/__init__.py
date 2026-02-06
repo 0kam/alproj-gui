@@ -26,9 +26,13 @@ from app.schemas.job import (
 )
 from app.schemas.project import (
     CreateProjectRequest,
+    EstimationParams,
+    EstimationResult,
     ExifData,
     ImageFile,
     InputData,
+    MatchingParams,
+    MatchingResult,
     Project,
     ProjectStatus,
     ProjectSummary,
@@ -59,9 +63,13 @@ __all__ = [
     "ProcessRequest",
     # project
     "CreateProjectRequest",
+    "EstimationParams",
+    "EstimationResult",
     "ExifData",
     "ImageFile",
     "InputData",
+    "MatchingParams",
+    "MatchingResult",
     "Project",
     "ProjectStatus",
     "ProjectSummary",

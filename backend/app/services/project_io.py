@@ -17,9 +17,11 @@ from uuid import UUID
 
 from app.schemas.project import (
     CameraParams,
+    EstimationResult,
     ExifData,
     ImageFile,
     InputData,
+    MatchingResult,
     ProcessResult,
     Project,
     ProjectStatus,
@@ -223,6 +225,18 @@ def _dict_to_project(data: dict[str, Any]) -> Project:
     if process_result_dict:
         process_result = ProcessResult(**process_result_dict)
 
+    # Build matching_result
+    matching_result = None
+    matching_result_dict = data.get("matching_result")
+    if matching_result_dict:
+        matching_result = MatchingResult(**matching_result_dict)
+
+    # Build estimation_result
+    estimation_result = None
+    estimation_result_dict = data.get("estimation_result")
+    if estimation_result_dict:
+        estimation_result = EstimationResult(**estimation_result_dict)
+
     return Project(
         id=project_id,
         version=data.get("version", CURRENT_VERSION),
@@ -234,6 +248,8 @@ def _dict_to_project(data: dict[str, Any]) -> Project:
         camera_params=camera_params,
         camera_simulation=data.get("camera_simulation"),
         process_result=process_result,
+        matching_result=matching_result,
+        estimation_result=estimation_result,
     )
 
 

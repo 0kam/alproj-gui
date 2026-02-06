@@ -164,7 +164,19 @@ function createProjectStore() {
 						: wizardState.estimatedParams
 							? { optimized: wizardState.estimatedParams }
 							: null,
-					process_result: wizardState.processResult ?? null
+					process_result: wizardState.processResult ?? null,
+					matching_result: {
+						match_plot: wizardState.matchingPlot ?? null,
+						log: wizardState.matchingLog ?? [],
+						match_count: wizardState.matchCount ?? null,
+						params: wizardState.matchingParams ?? null
+					},
+					estimation_result: {
+						simulation: wizardState.estimationSimulation ?? null,
+						log: wizardState.estimationLog ?? [],
+						params: wizardState.estimationParams ?? null,
+						optimized_params: wizardState.estimatedParams ?? null
+					}
 				};
 
 				const updatedProject = await api.put<Project>(

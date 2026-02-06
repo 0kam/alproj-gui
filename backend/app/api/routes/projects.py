@@ -355,21 +355,29 @@ async def update_project(
     if request.input_data is not None:
         project.input_data = request.input_data
 
-    if request.camera_params is not None:
+    if "camera_params" in request.model_fields_set:
         project.camera_params = request.camera_params
         # Reset processing status when camera params change
-        if project.status == ProjectStatus.COMPLETED:
+        if request.camera_params is not None and project.status == ProjectStatus.COMPLETED:
             project.status = ProjectStatus.DRAFT
             logger.info(f"Project {project_id} status reset to DRAFT due to camera param change")
 
     if "camera_simulation" in request.model_fields_set:
         project.camera_simulation = request.camera_simulation
 
-    if request.process_result is not None:
+    if "process_result" in request.model_fields_set:
         project.process_result = request.process_result
         # Update status based on process result
-        if project.process_result.gcps:
+        if project.process_result and project.process_result.gcps:
             project.status = ProjectStatus.COMPLETED
+        elif project.status == ProjectStatus.COMPLETED:
+            project.status = ProjectStatus.DRAFT
+
+    if "matching_result" in request.model_fields_set:
+        project.matching_result = request.matching_result
+
+    if "estimation_result" in request.model_fields_set:
+        project.estimation_result = request.estimation_result
 
     # Save updated project
     save_project(project)
