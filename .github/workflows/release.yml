@@ -294,6 +294,17 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Configure Linux build directories
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p /mnt/alproj-target /mnt/tmp
+          rm -rf src-tauri/target
+          ln -s /mnt/alproj-target src-tauri/target
+          echo "TMPDIR=/mnt/tmp" >> "$GITHUB_ENV"
+          echo "TMP=/mnt/tmp" >> "$GITHUB_ENV"
+          echo "TEMP=/mnt/tmp" >> "$GITHUB_ENV"
+          df -h
+
       # ============================================
       # Build Tauri App
       # ============================================
