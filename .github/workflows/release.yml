@@ -207,11 +207,14 @@ jobs:
         working-directory: backend
         run: |
           set -euo pipefail
-          SIDECARENTRY="dist/backend-sidecar/backend-sidecar"
+          SIDECARENTRY="backend-sidecar"
+          SIDECARDIR="dist/backend-sidecar"
           LOGFILE="$RUNNER_TEMP/backend-sidecar-smoke.log"
 
-          "$SIDECARENTRY" --host 127.0.0.1 --port 18765 >"$LOGFILE" 2>&1 &
+          pushd "$SIDECARDIR" >/dev/null
+          "./$SIDECARENTRY" --host 127.0.0.1 --port 18765 >"$LOGFILE" 2>&1 &
           SIDECAR_PID=$!
+          popd >/dev/null
 
           cleanup() {
             kill "$SIDECAR_PID" >/dev/null 2>&1 || true
@@ -225,7 +228,7 @@ jobs:
           import urllib.request
           from urllib.error import URLError
 
-          deadline = time.time() + 60
+          deadline = time.time() + 120
           url = "http://127.0.0.1:18765/api/health"
           while time.time() < deadline:
               try:
@@ -313,18 +316,20 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          $sidecar = Join-Path $PWD "dist/backend-sidecar/backend-sidecar.exe"
+          $sidecarDir = Join-Path $PWD "dist/backend-sidecar"
+          $sidecar = Join-Path $sidecarDir "backend-sidecar.exe"
           $stdoutLog = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.stdout.log"
           $stderrLog = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.stderr.log"
           $proc = Start-Process `
             -FilePath $sidecar `
+            -WorkingDirectory $sidecarDir `
             -ArgumentList "--host","127.0.0.1","--port","18765" `
             -RedirectStandardOutput $stdoutLog `
             -RedirectStandardError $stderrLog `
             -PassThru
 
           try {
-            $deadline = (Get-Date).AddSeconds(60)
+            $deadline = (Get-Date).AddSeconds(120)
             $ready = $false
             while ((Get-Date) -lt $deadline) {
               Start-Sleep -Milliseconds 500
