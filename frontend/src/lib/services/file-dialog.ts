@@ -210,6 +210,12 @@ export async function openDirectoryDialog(title?: string): Promise<string | null
  */
 export async function saveGeoTiffDialog(defaultName?: string): Promise<string | null> {
 	const filters: FileFilter[] = [{ name: 'GeoTIFF', extensions: ['tif', 'tiff'] }];
+	const hasExtension = (name: string) => /\.[^./\\]+$/.test(name);
+	const defaultPath = defaultName
+		? hasExtension(defaultName)
+			? defaultName
+			: `${defaultName}.tiff`
+		: undefined;
 
 	if (isTauri()) {
 		try {
@@ -217,7 +223,7 @@ export async function saveGeoTiffDialog(defaultName?: string): Promise<string | 
 			const result = await save({
 				title: 'Export GeoTIFF',
 				filters,
-				defaultPath: defaultName ? `${defaultName}.tif` : undefined
+				defaultPath
 			});
 			return result;
 		} catch (error) {
@@ -226,7 +232,7 @@ export async function saveGeoTiffDialog(defaultName?: string): Promise<string | 
 		}
 	} else {
 		const name = defaultName || 'output';
-		return `${name}.tif`;
+		return hasExtension(name) ? name : `${name}.tiff`;
 	}
 }
 

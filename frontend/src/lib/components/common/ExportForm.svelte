@@ -22,6 +22,8 @@
 	export let defaultCrs: string = 'EPSG:4326';
 	/** Optional template raster path for georeferencing */
 	export let templatePath: string | null = null;
+	/** Target image path used to build default output filename */
+	export let targetImagePath: string | null = null;
 	/** Whether the form is in submitting state */
 	export let submitting: boolean = false;
 
@@ -42,6 +44,21 @@
 	}
 	$: isValid = outputPath.trim() !== '' && resolution > 0 && crs.trim() !== '';
 
+	function getDateStamp(): string {
+		const now = new Date();
+		const yyyy = String(now.getFullYear());
+		const mm = String(now.getMonth() + 1).padStart(2, '0');
+		const dd = String(now.getDate()).padStart(2, '0');
+		return `${yyyy}${mm}${dd}`;
+	}
+
+	function getTargetImageStem(path: string | null): string {
+		if (!path) return 'target';
+		const filename = path.split(/[/\\]/).pop() ?? 'target';
+		const stem = filename.replace(/\.[^/.]+$/, '').trim();
+		return stem || 'target';
+	}
+
 	function handleSubmit() {
 		if (!isValid) return;
 
@@ -59,8 +76,9 @@
 	}
 
 	async function browseOutputPath() {
-		const dateStr = new Date().toISOString().split('T')[0];
-		const defaultName = `alproj_${dateStr}_georectified`;
+		const dateStr = getDateStamp();
+		const targetStem = getTargetImageStem(targetImagePath);
+		const defaultName = `${targetStem}_alproj_${dateStr}`;
 		const selected = await saveGeoTiffDialog(defaultName);
 		if (selected) {
 			outputPath = selected;

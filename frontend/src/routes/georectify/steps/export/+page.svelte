@@ -273,6 +273,7 @@
 					{projectId}
 					defaultCrs={projectCrs}
 					templatePath={inputData.ortho?.path ?? null}
+					targetImagePath={inputData.targetImage?.path ?? null}
 					submitting={isExporting}
 					on:export={handleExport}
 				/>
