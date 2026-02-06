@@ -25,6 +25,7 @@ from PIL import Image, ImageDraw
 from app.api.deps import ProcessingError, ValidationError, get_job_queue_dep
 from app.core.config import settings
 from app.core.jobs import Job, JobProgress, JobQueue
+from app.core.model_cache import configure_imm_runtime
 from app.schemas.camera import SimulationRequest, SimulationResponse
 from app.schemas.georectify import (
     EstimateRequest,
@@ -225,6 +226,8 @@ async def match_images(request: MatchRequest) -> MatchResponse:
         cv2.imwrite(str(sim_path), sim_img)
 
         try:
+            active_weights_dir = configure_imm_runtime()
+            log.append(f"Model cache: {active_weights_dir}")
             from alproj.gcp import image_match
 
             # Build params dict with correct image dimensions

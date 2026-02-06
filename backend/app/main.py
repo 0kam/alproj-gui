@@ -12,19 +12,10 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from pathlib import Path
 
 # Configure environment variables for PyInstaller bundled app
 # This must be done BEFORE importing pyproj/rasterio/gdal/imm
-def _get_runtime_model_weights_dir() -> Path:
-    """Return user-writable runtime directory for imm model weights."""
-    if sys.platform == "darwin":
-        base = Path.home() / "Library" / "Caches"
-    elif sys.platform == "win32":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return base / "alproj-gui" / "imm" / "model_weights"
+from app.core.model_cache import configure_model_cache_environment
 
 
 def _configure_bundled_app() -> None:
@@ -58,60 +49,8 @@ def _configure_bundled_app() -> None:
             print(f"[BUNDLE_CONFIG] Set GDAL_DATA={gdal_data_dir}", flush=True)
 
         # === Configure model cache (bundled if present, otherwise user cache) ===
-        bundled_weights_dir = Path(bundle_dir) / 'imm' / 'model_weights'
-        use_bundled_weights = bundled_weights_dir.exists()
-        runtime_weights_dir = _get_runtime_model_weights_dir()
-        active_weights_dir = bundled_weights_dir if use_bundled_weights else runtime_weights_dir
-
-        print(f"[BUNDLE_CONFIG] bundled_weights_dir={bundled_weights_dir}", flush=True)
-        print(f"[BUNDLE_CONFIG] use_bundled_weights={use_bundled_weights}", flush=True)
-        print(f"[BUNDLE_CONFIG] runtime_weights_dir={runtime_weights_dir}", flush=True)
+        active_weights_dir = configure_model_cache_environment(bundle_dir)
         print(f"[BUNDLE_CONFIG] active_weights_dir={active_weights_dir}", flush=True)
-
-        try:
-            active_weights_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print(f"[BUNDLE_CONFIG] Failed to create active weights dir: {e}", flush=True)
-
-        hf_cache = active_weights_dir / 'huggingface'
-        hf_hub_cache = hf_cache / 'hub'
-        torch_cache = active_weights_dir / 'torch'
-        torch_hub_dir = torch_cache / 'hub'
-
-        hf_hub_cache.mkdir(parents=True, exist_ok=True)
-        torch_hub_dir.mkdir(parents=True, exist_ok=True)
-
-        os.environ['HF_HOME'] = str(hf_cache)
-        os.environ['HUGGINGFACE_HUB_CACHE'] = str(hf_hub_cache)
-        os.environ['TORCH_HOME'] = str(torch_cache)
-        if use_bundled_weights:
-            os.environ['HF_HUB_OFFLINE'] = '1'
-        else:
-            # Runtime download mode: do not force offline.
-            os.environ.pop('HF_HUB_OFFLINE', None)
-
-        print(f"[BUNDLE_CONFIG] Set HF_HOME={hf_cache}", flush=True)
-        print(f"[BUNDLE_CONFIG] Set HUGGINGFACE_HUB_CACHE={hf_hub_cache}", flush=True)
-        print(f"[BUNDLE_CONFIG] Set TORCH_HOME={torch_cache}", flush=True)
-
-        # Align torch.hub and imm.WEIGHTS_DIR with the selected model cache location.
-        try:
-            import torch.hub
-
-            torch.hub.set_dir(str(torch_hub_dir))
-            print(f"[BUNDLE_CONFIG] Set torch.hub.set_dir({torch_hub_dir})", flush=True)
-            print(f"[BUNDLE_CONFIG] Verify torch.hub.get_dir()={torch.hub.get_dir()}", flush=True)
-        except Exception as e:
-            print(f"[BUNDLE_CONFIG] Failed to set torch.hub dir: {e}", flush=True)
-
-        try:
-            import imm
-
-            imm.WEIGHTS_DIR = active_weights_dir
-            imm.WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-            print(f"[BUNDLE_CONFIG] Set imm.WEIGHTS_DIR={imm.WEIGHTS_DIR}", flush=True)
-        except Exception as e:
-            print(f"[BUNDLE_CONFIG] Failed to configure imm.WEIGHTS_DIR: {e}", flush=True)
 
         # List bundle_dir top-level contents for debugging
         try:

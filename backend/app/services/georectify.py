@@ -21,6 +21,7 @@ import numpy as np
 import rasterio
 
 from app.api.deps import FileError, MatchingError, MemoryError, ProcessingError
+from app.core.model_cache import configure_imm_runtime
 from app.schemas import GCP, CameraParamsValues, ProcessMetrics
 
 if TYPE_CHECKING:
@@ -516,11 +517,13 @@ async def run_estimation(
         raise FileNotFoundError(f"Target image not found: {target_image_path}")
 
     def _run() -> tuple[bytes, CameraParamsValues, list[str]]:
+        active_weights_dir = configure_imm_runtime()
         from alproj.gcp import image_match, set_gcp, filter_gcp_distance
         from alproj.optimize import CMAOptimizer, LsqOptimizer
         from alproj.project import reverse_proj
 
         log: list[str] = []
+        log.append(f"Model cache: {active_weights_dir}")
 
         if not (optimize_position or optimize_orientation or optimize_fov or optimize_distortion or two_stage):
             raise ProcessingError(

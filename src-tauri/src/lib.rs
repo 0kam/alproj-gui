@@ -15,7 +15,7 @@ use tokio::time::{sleep, Duration};
 const BACKEND_HOST: &str = "127.0.0.1";
 const BACKEND_PORT: u16 = 8765;
 const HEALTH_CHECK_URL: &str = "http://127.0.0.1:8765/api/health";
-const HEALTH_CHECK_TIMEOUT_SECS: u64 = 30;
+const HEALTH_CHECK_TIMEOUT_SECS: u64 = 180;
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
 
 /// Enum to hold different types of process handles
@@ -245,8 +245,9 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
         let child = Command::new(&sidecar_path)
             .args(["--host", BACKEND_HOST, "--port", &BACKEND_PORT.to_string()])
             .current_dir(&sidecar_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            // Avoid deadlock from unread stdout/stderr pipes in GUI mode.
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 

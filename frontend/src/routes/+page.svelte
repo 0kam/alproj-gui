@@ -10,6 +10,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18n';
 	import { api } from '$lib/services/api';
@@ -20,8 +21,11 @@
 	// Backend connection state
 	let backendConnected = false;
 	let checkingConnection = true;
+	let backendError = '';
 	let initialConnectionAttempts = 0;
-	const MAX_INITIAL_ATTEMPTS = 30; // Try for up to 60 seconds (30 * 2s interval)
+	const MAX_INITIAL_ATTEMPTS = 30; // Show "disconnected" after 60s, but continue polling.
+	const RETRY_INTERVAL_MS = 2000;
+	let recoveryChecked = false;
 
 	// Recovery dialog state
 	let showRecoveryDialog = false;
@@ -29,80 +33,85 @@
 
 	// Check backend connection and recovery files on mount
 	onMount(() => {
-		// Initial connection check with retry logic for startup
-		checkInitialConnection();
+		let retryInterval: ReturnType<typeof setInterval> | null = null;
+		let unlistenBackendReady: UnlistenFn | null = null;
+		let unlistenBackendError: UnlistenFn | null = null;
+		let disposed = false;
 
-		return () => {
-			// Cleanup handled by interval clearing in checkInitialConnection
-		};
-	});
-
-	async function checkInitialConnection() {
-		checkingConnection = true;
-		initialConnectionAttempts = 0;
-
-		// Retry with 2 second intervals until connected or max attempts reached
-		const retryInterval = setInterval(async () => {
-			initialConnectionAttempts++;
-
+		void (async () => {
+			// In packaged app, backend sends explicit startup events.
+			// Keep this best-effort: polling still works even if event subscription fails.
 			try {
-				backendConnected = await api.healthCheck();
-				if (backendConnected) {
-					// Connected! Stop retrying
-					clearInterval(retryInterval);
+				const { listen } = await import('@tauri-apps/api/event');
+				unlistenBackendReady = await listen<boolean>('backend-ready', async () => {
+					if (disposed) return;
+					backendConnected = true;
 					checkingConnection = false;
-					checkRecoveryFiles();
+					backendError = '';
+					await checkRecoveryFilesOnce();
+				});
+				unlistenBackendError = await listen<string>('backend-error', (event) => {
+					if (disposed) return;
+					backendConnected = false;
+					checkingConnection = false;
+					backendError = String(event.payload || 'Backend startup failed');
+				});
+			} catch (error) {
+				console.warn('Failed to subscribe backend events:', error);
+			}
+		})();
 
-					// Set up periodic health check for subsequent monitoring
-					const monitorInterval = setInterval(async () => {
-						try {
-							backendConnected = await api.healthCheck();
-						} catch {
-							backendConnected = false;
-						}
-					}, 10000);
+		const poll = async () => {
+			initialConnectionAttempts++;
+			try {
+				const connected = await api.healthCheck();
+				backendConnected = connected;
 
-					// Store cleanup function (handled by component destroy)
-					return () => clearInterval(monitorInterval);
+				if (connected) {
+					checkingConnection = false;
+					backendError = '';
+					await checkRecoveryFilesOnce();
+					return;
 				}
 			} catch {
 				backendConnected = false;
 			}
 
-			// Check if we've exceeded max attempts
-			if (initialConnectionAttempts >= MAX_INITIAL_ATTEMPTS) {
-				clearInterval(retryInterval);
+			if (checkingConnection && initialConnectionAttempts >= MAX_INITIAL_ATTEMPTS) {
 				checkingConnection = false;
 			}
-		}, 2000);
+		};
 
-		// Do an immediate first check
-		try {
-			backendConnected = await api.healthCheck();
-			if (backendConnected) {
+		void poll();
+		retryInterval = setInterval(() => {
+			void poll();
+		}, RETRY_INTERVAL_MS);
+
+		return () => {
+			disposed = true;
+			if (retryInterval) {
 				clearInterval(retryInterval);
-				checkingConnection = false;
-				checkRecoveryFiles();
-
-				// Set up periodic health check
-				setInterval(async () => {
-					try {
-						backendConnected = await api.healthCheck();
-					} catch {
-						backendConnected = false;
-					}
-				}, 10000);
 			}
-		} catch {
-			// First attempt failed, continue with retry interval
-		}
-	}
+			if (unlistenBackendReady) {
+				unlistenBackendReady();
+			}
+			if (unlistenBackendError) {
+				unlistenBackendError();
+			}
+		};
+	});
 
 	async function checkRecoveryFiles() {
 		const files = await projectStore.checkRecoveryFiles();
 		if (files.length > 0) {
 			showRecoveryDialog = true;
 		}
+	}
+
+	async function checkRecoveryFilesOnce() {
+		if (recoveryChecked) return;
+		recoveryChecked = true;
+		await checkRecoveryFiles();
 	}
 
 	async function handleNewProject() {
@@ -230,6 +239,9 @@
 				<span class="status-indicator offline">{t('status.disconnected')}</span>
 			{/if}
 		</div>
+		{#if backendError}
+			<div class="status-error">{backendError}</div>
+		{/if}
 	</footer>
 </div>
 
@@ -312,6 +324,14 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 0.875rem;
+	}
+
+	.status-error {
+		margin-top: 0.5rem;
+		max-width: 56rem;
+		color: #b4232c;
+		font-size: 0.8rem;
+		word-break: break-word;
 	}
 
 	.status-label {
