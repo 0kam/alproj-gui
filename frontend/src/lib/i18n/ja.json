@@ -44,6 +44,7 @@
     "createdAt": "作成日時",
     "updatedAt": "更新日時",
     "unsavedChanges": "未保存の変更があります",
+    "confirmDiscardToHome": "未保存の変更があります。保存せずにトップページへ戻りますか？",
     "notFound": "プロジェクトが見つかりません。データ入力からやり直してください。"
   },
   "wizard": {
