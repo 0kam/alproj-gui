@@ -1,0 +1,333 @@
+{
+  "app": {
+    "name": "ALPROJ GUI",
+    "subtitle": "Landscape Photo Orthorectification Tool"
+  },
+  "georectify": {
+    "title": "Orthorectification"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No",
+    "rerun": "Re-run",
+    "processing": "Processing..."
+  },
+  "home": {
+    "welcome": "Welcome to ALPROJ GUI",
+    "description": "Orthorectify landscape photos using DSM and aerial imagery",
+    "newProject": "New Project",
+    "openProject": "Open Project",
+    "recentProjects": "Recent Projects",
+    "noRecentProjects": "No recent projects"
+  },
+  "project": {
+    "create": "Create Project",
+    "open": "Open Project",
+    "save": "Save Project",
+    "saveAs": "Save As",
+    "close": "Close Project",
+    "name": "Project Name",
+    "description": "Description",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "unsavedChanges": "You have unsaved changes",
+    "notFound": "Project not found. Please restart from data input."
+  },
+  "wizard": {
+    "step1": "Data Input",
+    "step2": "Camera Settings",
+    "step3": "Image Matching",
+    "step4": "Camera Estimation",
+    "step5": "GeoTIFF Export"
+  },
+  "dataInput": {
+    "title": "Data Input",
+    "dsm": "DSM (Digital Surface Model)",
+    "dsmDescription": "Select a GeoTIFF format DSM file",
+    "ortho": "Aerial Photo",
+    "orthoDescription": "Select a GeoTIFF format aerial photo",
+    "photo": "Landscape Photo",
+    "photoDescription": "Select the target landscape photo for correction",
+    "selectFile": "Select File",
+    "fileInfo": "File Info",
+    "crs": "Coordinate Reference System",
+    "size": "Size",
+    "bounds": "Bounds",
+    "resolution": "Resolution",
+    "crsMismatchWarning": "CRS mismatch between DSM ({dsm_crs}) and Orthophoto ({ortho_crs}). Results may be inaccurate.",
+    "dsmPreview": "DSM Preview",
+    "orthoPreview": "Orthophoto Preview",
+    "targetPreview": "Target Image Preview",
+    "camera": "Camera",
+    "datetime": "Date/Time",
+    "focalLength": "Focal Length",
+    "completeFirst": "Please complete the data input step first.",
+    "goToDataInput": "Go to Data Input"
+  },
+  "camera": {
+    "title": "Camera Settings",
+    "position": "Camera Position",
+    "x": "X Coordinate",
+    "y": "Y Coordinate",
+    "z": "Elevation",
+    "direction": "Shooting Direction",
+    "tilt": "Tilt",
+    "roll": "Roll",
+    "fov": "Field of View",
+    "simulation": "Simulation Image",
+    "description": "Click on the map to set camera position, direction, and field of view. Generate a simulation image and adjust to match the composition of the actual photo.",
+    "parameters": "Parameters",
+    "positionLabel": "Position:",
+    "gsiMap": "GSI Map",
+    "gsiLabel": "GSI",
+    "aerialPhoto": "Aerial Photo"
+  },
+  "rendering": {
+    "title": "Rendering Settings",
+    "maxDistance": "Max Distance (m)",
+    "maxDistanceHint": "Maximum distance to render in simulation",
+    "minDistance": "Min Distance (m)",
+    "minDistanceHint": "Exclude areas too close to camera"
+  },
+  "processing": {
+    "title": "Processing",
+    "start": "Start Processing",
+    "stop": "Stop Processing",
+    "progress": "Progress",
+    "status": {
+      "idle": "Idle",
+      "running": "Processing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "matching": {
+    "title": "Image Matching",
+    "pageTitle": "Image Matching - ALPROJ",
+    "options": "Matching Options",
+    "method": "Image Matching Method",
+    "spatialThinGrid": "Spatial Thinning Grid",
+    "spatialThinGridHelp": "To reduce spatial bias in correspondences, points are thinned at a fixed interval (px).",
+    "resize": "Resize",
+    "threshold": "Threshold",
+    "thresholdHelp": "Threshold (px) for fundamental-matrix-based outlier detection. Increase it if correspondences cannot be found near image edges (e.g., with strong lens distortion).",
+    "run": "Run Matching",
+    "running": "Matching...",
+    "error": "Matching Error",
+    "failed": "Matching failed",
+    "result": "Matching Result",
+    "resultAlt": "Matching Result",
+    "matchCount": "Match count: {count}",
+    "nextEstimation": "Next: Estimation",
+    "akaze": {
+      "label": "AKAZE",
+      "description": "Fast feature detection. Works well when aerial and target images have similar resolution."
+    },
+    "sift": {
+      "label": "SIFT",
+      "description": "Classic and robust method. Accuracy decreases with large resolution differences."
+    },
+    "superpoint": {
+      "label": "SuperPoint-LightGlue (Default)",
+      "description": "Deep learning-based matcher (recommended). Robust to viewpoint and resolution changes."
+    },
+    "minima": {
+      "label": "MINIMA-ROMA",
+      "description": "High accuracy but heavy. Requires 16GB+ RAM, processing takes several minutes."
+    },
+    "akazeSiftNote": "AKAZE/SIFT may fail to detect correspondences when there is a large spatial resolution difference between the aerial and target images.",
+    "minimaNote": "MINIMA-ROMA is robust and produces dense correspondences but is heavy, requires 16GB+ RAM, and may take several minutes. Image resizing is recommended when using MINIMA-ROMA."
+  },
+  "result": {
+    "title": "Results",
+    "metrics": "Accuracy Metrics",
+    "rmse": "RMSE",
+    "gcpCount": "GCP Count",
+    "compare": "Compare View"
+  },
+  "export": {
+    "title": "Export",
+    "pageTitle": "GeoTIFF Export - ALPROJ",
+    "heading": "GeoTIFF Export",
+    "format": "Output Format",
+    "resolution": "Resolution",
+    "crs": "Output CRS",
+    "outputPath": "Output Path",
+    "exportButton": "Export",
+    "exporting": "Exporting...",
+    "exportNote": "Export may take several minutes depending on image size and resolution.",
+    "error": "Export Error",
+    "mapPreview": "GeoTIFF Map Preview",
+    "output": "Output:",
+    "reexport": "Re-export",
+    "steps": {
+      "starting": "Starting...",
+      "validating": "Validating parameters...",
+      "loading": "Loading project...",
+      "loading_image": "Loading image...",
+      "surface": "Creating surface mesh...",
+      "projecting": "Projecting...",
+      "writing": "Writing GeoTIFF...",
+      "finalizing": "Finalizing...",
+      "complete": "Complete"
+    }
+  },
+  "error": {
+    "networkError": "A network error occurred",
+    "serverError": "A server error occurred",
+    "fileNotFound": "File not found",
+    "invalidFile": "Invalid file format",
+    "processingFailed": "Processing failed",
+    "missingData": "Required input data or camera parameters are missing.",
+    "noTargetSelected": "No estimation targets selected. Please select at least one.",
+    "estimationFailed": "Estimation failed"
+  },
+  "errors": {
+    "file_not_found": "File not found: {path}",
+    "memory_error": "Out of memory. Recommended resolution: {resolution}m/pixel or higher",
+    "matching_failed": "Image matching failed",
+    "matching_insufficient_points": "Insufficient matching points ({count}). At least {required} points required",
+    "crs_mismatch": "CRS mismatch. DSM: {dsm_crs}, Aerial: {ortho_crs}",
+    "crs_mismatch_simple": "Coordinate reference systems do not match",
+    "crs_not_defined": "CRS is not defined",
+    "crs_not_projected": "CRS must be a projected coordinate system in meters",
+    "crs_unit_undefined": "CRS unit is undefined",
+    "crs_unit_not_meters": "CRS unit must be meters",
+    "invalid_camera_params": "Invalid camera parameters: {detail}",
+    "export_failed": "Export failed: {detail}",
+    "project_load_failed": "Failed to load project: {detail}",
+    "project_save_failed": "Failed to save project: {detail}"
+  },
+  "help": {
+    "dsm": "Digital Surface Model (GeoTIFF) - Terrain elevation data",
+    "ortho": "Aerial Photo (GeoTIFF) - Georeferenced reference image",
+    "targetImage": "Target landscape photo for correction (JPEG/PNG/TIFF)",
+    "fov": "Field of View - Camera lens viewing angle in degrees",
+    "pan": "Pan angle - Horizontal camera direction in degrees (0° = North, clockwise)",
+    "tilt": "Tilt angle - Vertical camera angle in degrees (0° = horizontal)",
+    "roll": "Roll angle - Camera rotation around optical axis in degrees",
+    "cameraPosition": "Camera position - Shooting location coordinates (projected CRS) and elevation",
+    "matching_method": "Image matching algorithm - Method for detecting corresponding points",
+    "resolution": "Output resolution - Meters per pixel (smaller = higher detail)",
+    "outputCrs": "Output CRS - Coordinate reference system for exported GeoTIFF",
+    "gcp": "GCP (Ground Control Point) - Correspondence between image and geographic coordinates",
+    "rmse": "RMSE (Root Mean Square Error) - Accuracy metric, smaller is better"
+  },
+  "tooltips": {
+    "newProject": "Create a new orthorectification project",
+    "openProject": "Open an existing project file (.alproj)",
+    "saveProject": "Save the current project",
+    "exportGeotiff": "Export corrected result as GeoTIFF",
+    "startProcessing": "Start orthorectification processing",
+    "cancelProcessing": "Cancel processing in progress",
+    "resetParams": "Reset camera parameters to default values",
+    "autoDetect": "Auto-detect camera parameters from EXIF data"
+  },
+  "status": {
+    "backend": "Backend",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting...",
+    "draft": "Draft",
+    "processing": "Processing",
+    "completed": "Completed",
+    "error": "Error"
+  },
+  "recovery": {
+    "title": "Unsaved projects found",
+    "description": "There are projects from your previous session that were not saved.",
+    "noFiles": "No recoverable files",
+    "savedAt": "Saved At",
+    "recover": "Recover",
+    "discard": "Discard",
+    "recoverAll": "Recover All",
+    "discardAll": "Discard All"
+  },
+  "menu": {
+    "file": "File",
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "saveAs": "Save As",
+    "close": "Close"
+  },
+  "estimation": {
+    "title": "Camera Parameter Estimation",
+    "options": "Estimation Options",
+    "optimizer": "Optimizer",
+    "maxGenerations": "Max Generations",
+    "minGcpDistance": "Min GCP Distance (m)",
+    "twoStage": "Enable Two-Stage Estimation",
+    "twoStageDescription": "First estimates position and orientation, then lens distortion. Effective for lenses with significant distortion.",
+    "twoStageAutoEnabled": "Two-stage estimation is automatically enabled when distortion estimation is ON.",
+    "optimizeTargets": "Optimization Targets",
+    "optimizePosition": "Camera Position",
+    "optimizeOrientation": "Camera Orientation",
+    "optimizeFov": "Field of View",
+    "optimizeDistortion": "Distortion",
+    "run": "Run Estimation",
+    "running": "Estimating...",
+    "rerun": "Re-estimate",
+    "error": "Estimation Error",
+    "simulationVsTarget": "Simulation vs Target Image",
+    "targetNotAvailable": "Could not load target image",
+    "nextGeotiff": "Next: GeoTIFF Export",
+    "cmaDescription": "CMA-ES is slower than Least Squares but performs well when camera position estimation is needed. Two-stage estimation first estimates rough parameters, re-runs image matching, then refines the estimates. Useful when initial camera parameters are uncertain."
+  },
+  "optimization": {
+    "title": "Optimization Parameters",
+    "cma": {
+      "label": "CMA-ES",
+      "description": "Evolutionary optimization. Suitable for complex parameter spaces."
+    },
+    "lsq": {
+      "label": "Least Squares",
+      "description": "Fast local optimization. Effective when initial estimates are good."
+    },
+    "maxGenerationsSlider": {
+      "fast": "Fast",
+      "precise": "Precise"
+    },
+    "minGcpDistanceSlider": {
+      "more": "More GCPs",
+      "fewer": "Fewer GCPs"
+    }
+  },
+  "gcp": {
+    "title": "Ground Control Points",
+    "noData": "No ground control points. Run processing first.",
+    "required": "At least 4 GCPs are required for reprocessing."
+  },
+  "advanced": {
+    "settings": "Advanced Settings",
+    "scale": "Scale",
+    "radialDistortion": "Radial Distortion",
+    "tangentialDistortion": "Tangential Distortion",
+    "thinPrism": "Thin Prism Distortion",
+    "principalPoint": "Principal Point",
+    "exifSuggestion": "Parameters retrieved from EXIF data",
+    "applyAll": "Apply All",
+    "reprocess": "Update Settings and Reprocess",
+    "reprocessing": "Reprocessing...",
+    "pan": "Pan Angle"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ja": "日本語"
+  }
+}

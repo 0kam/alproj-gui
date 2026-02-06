@@ -1,0 +1,333 @@
+{
+  "app": {
+    "name": "ALPROJ GUI",
+    "subtitle": "景観写真オルソ化ツール"
+  },
+  "georectify": {
+    "title": "オルソ化"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "save": "保存",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "back": "戻る",
+    "next": "次へ",
+    "finish": "完了",
+    "retry": "再試行",
+    "yes": "はい",
+    "no": "いいえ",
+    "rerun": "再実行",
+    "processing": "処理中..."
+  },
+  "home": {
+    "welcome": "ALPROJ GUI へようこそ",
+    "description": "DSMと航空写真から景観写真のオルソ化を行います",
+    "newProject": "新規プロジェクト",
+    "openProject": "プロジェクトを開く",
+    "recentProjects": "最近のプロジェクト",
+    "noRecentProjects": "最近のプロジェクトはありません"
+  },
+  "project": {
+    "create": "プロジェクト作成",
+    "open": "プロジェクトを開く",
+    "save": "プロジェクトを保存",
+    "saveAs": "名前を付けて保存",
+    "close": "プロジェクトを閉じる",
+    "name": "プロジェクト名",
+    "description": "説明",
+    "createdAt": "作成日時",
+    "updatedAt": "更新日時",
+    "unsavedChanges": "未保存の変更があります",
+    "notFound": "プロジェクトが見つかりません。データ入力からやり直してください。"
+  },
+  "wizard": {
+    "step1": "データ入力",
+    "step2": "カメラ設定",
+    "step3": "画像マッチング",
+    "step4": "カメラ推定",
+    "step5": "GeoTIFF出力"
+  },
+  "dataInput": {
+    "title": "データ入力",
+    "dsm": "DSM（数値表面モデル）",
+    "dsmDescription": "GeoTIFF形式のDSMファイルを選択してください",
+    "ortho": "航空写真",
+    "orthoDescription": "GeoTIFF形式の航空写真を選択してください",
+    "photo": "景観写真",
+    "photoDescription": "補正対象の景観写真を選択してください",
+    "selectFile": "ファイルを選択",
+    "fileInfo": "ファイル情報",
+    "crs": "座標参照系",
+    "size": "サイズ",
+    "bounds": "範囲",
+    "resolution": "解像度",
+    "crsMismatchWarning": "DSM ({dsm_crs}) とオルソフォト ({ortho_crs}) のCRSが異なります。結果が不正確になる可能性があります。",
+    "dsmPreview": "DSMプレビュー",
+    "orthoPreview": "オルソフォトプレビュー",
+    "targetPreview": "対象画像プレビュー",
+    "camera": "カメラ",
+    "datetime": "日時",
+    "focalLength": "焦点距離",
+    "completeFirst": "先にデータ入力ステップを完了してください。",
+    "goToDataInput": "データ入力へ"
+  },
+  "camera": {
+    "title": "カメラ設定",
+    "position": "カメラ位置",
+    "x": "X座標",
+    "y": "Y座標",
+    "z": "標高",
+    "direction": "撮影方向",
+    "tilt": "傾き",
+    "roll": "回転",
+    "fov": "視野角",
+    "simulation": "シミュレーション画像",
+    "description": "地図上でクリックしてカメラ位置、カメラ向き、画角を設定してください。シミュレーション画像を生成し、実際の写真と近い構図になるように調整してください。",
+    "parameters": "パラメータ",
+    "positionLabel": "位置:",
+    "gsiMap": "国土地理院地図",
+    "gsiLabel": "地理院",
+    "aerialPhoto": "航空写真"
+  },
+  "rendering": {
+    "title": "レンダリング設定",
+    "maxDistance": "最大距離 (m)",
+    "maxDistanceHint": "シミュレーションで描画する最大距離",
+    "minDistance": "最小距離 (m)",
+    "minDistanceHint": "カメラに近すぎる領域を除外"
+  },
+  "processing": {
+    "title": "処理実行",
+    "start": "処理開始",
+    "stop": "処理停止",
+    "progress": "進捗",
+    "status": {
+      "idle": "待機中",
+      "running": "処理中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    }
+  },
+  "matching": {
+    "title": "画像マッチング",
+    "pageTitle": "画像マッチング - ALPROJ",
+    "options": "マッチングオプション",
+    "method": "画像マッチング手法",
+    "spatialThinGrid": "空間間引きグリッド",
+    "spatialThinGridHelp": "対応点の空間的な偏りを減らすために、一定間隔（px）で対応点を間引きます。",
+    "resize": "リサイズ",
+    "threshold": "閾値",
+    "thresholdHelp": "基礎行列ベースの外れ値検知の閾値（px）です。歪みの大きいレンズなどで画像周囲に対応点が取れなかった場合は大きめに設定してください。",
+    "run": "マッチング実行",
+    "running": "マッチング中...",
+    "error": "マッチングエラー",
+    "failed": "マッチングに失敗しました",
+    "result": "マッチング結果",
+    "resultAlt": "マッチング結果",
+    "matchCount": "マッチング点数: {count}",
+    "nextEstimation": "次へ: 推定",
+    "akaze": {
+      "label": "AKAZE",
+      "description": "高速な特徴点検出。航空写真と対象画像の解像度が近い場合に有効です。"
+    },
+    "sift": {
+      "label": "SIFT",
+      "description": "古典的で堅牢な手法。解像度の差が大きいと精度が低下します。"
+    },
+    "superpoint": {
+      "label": "SuperPoint-LightGlue（デフォルト）",
+      "description": "深層学習ベースのマッチャー（推奨）。視点や解像度の変化に強いです。"
+    },
+    "minima": {
+      "label": "MINIMA-ROMA",
+      "description": "高精度だが重い。16GB以上のRAMを推奨、処理に数分かかります。"
+    },
+    "akazeSiftNote": "AKAZE/SIFTは、航空写真と対象画像の空間解像度が大きく異なる場合、対応点の検出に失敗することがあります。",
+    "minimaNote": "MINIMA-ROMAはロバストで密に対応点を取得できますが重く、16GB以上のRAMが必要で、実行に数分かかる場合があります。MINIMA-ROMAを使う場合は画像のリサイズを推奨します。"
+  },
+  "result": {
+    "title": "結果確認",
+    "metrics": "精度指標",
+    "rmse": "RMSE",
+    "gcpCount": "GCP数",
+    "compare": "比較表示"
+  },
+  "export": {
+    "title": "エクスポート",
+    "pageTitle": "GeoTIFFエクスポート - ALPROJ",
+    "heading": "GeoTIFFエクスポート",
+    "format": "出力形式",
+    "resolution": "解像度",
+    "crs": "出力座標系",
+    "outputPath": "出力先",
+    "exportButton": "エクスポート",
+    "exporting": "エクスポート中...",
+    "exportNote": "エクスポートは画像サイズと解像度によって数分かかる場合があります。",
+    "error": "エクスポートエラー",
+    "mapPreview": "GeoTIFFマッププレビュー",
+    "output": "出力:",
+    "reexport": "再エクスポート",
+    "steps": {
+      "starting": "開始中...",
+      "validating": "パラメータ検証中...",
+      "loading": "プロジェクト読み込み中...",
+      "loading_image": "画像読み込み中...",
+      "surface": "サーフェスメッシュ作成中...",
+      "projecting": "逆投影処理中...",
+      "writing": "GeoTIFF書き込み中...",
+      "finalizing": "完了処理中...",
+      "complete": "完了"
+    }
+  },
+  "error": {
+    "networkError": "ネットワークエラーが発生しました",
+    "serverError": "サーバーエラーが発生しました",
+    "fileNotFound": "ファイルが見つかりません",
+    "invalidFile": "無効なファイル形式です",
+    "processingFailed": "処理に失敗しました",
+    "missingData": "必要な入力データまたはカメラパラメータが不足しています。",
+    "noTargetSelected": "推定対象が選択されていません。少なくとも1つ選択してください。",
+    "estimationFailed": "推定に失敗しました"
+  },
+  "errors": {
+    "file_not_found": "ファイルが見つかりません: {path}",
+    "memory_error": "メモリ不足です。推奨解像度: {resolution}m/pixel 以上",
+    "matching_failed": "画像マッチングに失敗しました",
+    "matching_insufficient_points": "対応点が不足しています（{count}点）。最低{required}点必要です",
+    "crs_mismatch": "座標系が一致しません。DSM: {dsm_crs}, 航空写真: {ortho_crs}",
+    "crs_mismatch_simple": "DSMと航空写真の座標系が一致しません",
+    "crs_not_defined": "CRSが定義されていません",
+    "crs_not_projected": "CRSはメートル単位の投影座標系である必要があります",
+    "crs_unit_undefined": "CRSの単位が判別できません",
+    "crs_unit_not_meters": "CRSの単位がメートルではありません",
+    "invalid_camera_params": "カメラパラメータが無効です: {detail}",
+    "export_failed": "エクスポートに失敗しました: {detail}",
+    "project_load_failed": "プロジェクトの読み込みに失敗しました: {detail}",
+    "project_save_failed": "プロジェクトの保存に失敗しました: {detail}"
+  },
+  "help": {
+    "dsm": "数値表層モデル（GeoTIFF形式）- 地形の標高データ",
+    "ortho": "航空写真（GeoTIFF形式）- 地理座標付きの参照画像",
+    "targetImage": "補正対象の景観写真（JPEG/PNG/TIFF形式）",
+    "fov": "視野角（Field of View）- カメラのレンズ特性による視野の広さ（度）",
+    "pan": "パン角 - カメラの水平方向の向き（度、北を0度として時計回り）",
+    "tilt": "チルト角 - カメラの垂直方向の傾き（度、水平を0度）",
+    "roll": "ロール角 - カメラの光軸を中心とした回転（度）",
+    "cameraPosition": "カメラ位置 - 撮影地点の座標（投影座標系）と標高",
+    "matching_method": "画像マッチングアルゴリズム - 対応点検出の手法を選択",
+    "resolution": "出力解像度 - 1ピクセルあたりのメートル数（小さいほど高精細）",
+    "outputCrs": "出力座標系 - エクスポートするGeoTIFFの座標参照系",
+    "gcp": "GCP（Ground Control Point）- 画像座標と地理座標の対応点",
+    "rmse": "RMSE（Root Mean Square Error）- 精度指標、小さいほど高精度"
+  },
+  "tooltips": {
+    "newProject": "新しいオルソ化プロジェクトを作成します",
+    "openProject": "既存のプロジェクトファイル（.alproj）を開きます",
+    "saveProject": "現在のプロジェクトを保存します",
+    "exportGeotiff": "補正結果をGeoTIFF形式でエクスポートします",
+    "startProcessing": "オルソ化処理を開始します",
+    "cancelProcessing": "実行中の処理をキャンセルします",
+    "resetParams": "カメラパラメータを初期値にリセットします",
+    "autoDetect": "EXIFデータからカメラパラメータを自動推定します"
+  },
+  "status": {
+    "backend": "バックエンド",
+    "connected": "接続済み",
+    "disconnected": "未接続",
+    "connecting": "接続中...",
+    "draft": "下書き",
+    "processing": "処理中",
+    "completed": "完了",
+    "error": "エラー"
+  },
+  "recovery": {
+    "title": "未保存のプロジェクトが見つかりました",
+    "description": "前回のセッションで保存されなかったプロジェクトがあります。",
+    "noFiles": "復旧可能なファイルはありません",
+    "savedAt": "保存日時",
+    "recover": "復旧",
+    "discard": "破棄",
+    "recoverAll": "すべて復旧",
+    "discardAll": "すべて破棄"
+  },
+  "menu": {
+    "file": "ファイル",
+    "new": "新規作成",
+    "open": "開く",
+    "save": "保存",
+    "saveAs": "名前を付けて保存",
+    "close": "閉じる"
+  },
+  "estimation": {
+    "title": "カメラパラメータ推定",
+    "options": "推定オプション",
+    "optimizer": "最適化手法",
+    "maxGenerations": "最大世代数",
+    "minGcpDistance": "GCP最小間隔 (m)",
+    "twoStage": "2段階推定を有効化",
+    "twoStageDescription": "まず位置・方向パラメータを推定し、次にレンズ歪みパラメータを推定します。歪みの大きいレンズに有効です。",
+    "twoStageAutoEnabled": "歪み推定をONにすると2段階推定は自動的に有効になります。",
+    "optimizeTargets": "推定対象",
+    "optimizePosition": "カメラ位置",
+    "optimizeOrientation": "カメラ向き",
+    "optimizeFov": "画角",
+    "optimizeDistortion": "歪み",
+    "run": "推定を実行",
+    "running": "推定中...",
+    "rerun": "再推定",
+    "error": "推定エラー",
+    "simulationVsTarget": "シミュレーション vs 対象画像",
+    "targetNotAvailable": "対象画像を読み込めませんでした",
+    "nextGeotiff": "次へ: GeoTIFF出力",
+    "cmaDescription": "CMA-ESは最小二乗法と比較して遅いですがカメラ位置の推定が必要な場合に良い性能を発揮します。また、2段階推定を有効にすると大まかなカメラパラメータを推定してから画像マッチングを再度実施し、詳細なパラメータ推定を行います。カメラパラメータの初期値に自信がない場合に有効です。"
+  },
+  "optimization": {
+    "title": "最適化パラメータ",
+    "cma": {
+      "label": "CMA-ES",
+      "description": "進化的最適化。複雑なパラメータ空間に適しています。"
+    },
+    "lsq": {
+      "label": "最小二乗法",
+      "description": "高速な局所最適化。初期推定が良い場合に有効です。"
+    },
+    "maxGenerationsSlider": {
+      "fast": "高速",
+      "precise": "高精度"
+    },
+    "minGcpDistanceSlider": {
+      "more": "GCP多め",
+      "fewer": "GCP少なめ"
+    }
+  },
+  "gcp": {
+    "title": "地上基準点",
+    "noData": "地上基準点がありません。まず処理を実行してください。",
+    "required": "再処理には最低4点のGCPが必要です。"
+  },
+  "advanced": {
+    "settings": "詳細設定",
+    "scale": "スケール",
+    "radialDistortion": "放射歪み",
+    "tangentialDistortion": "接線歪み",
+    "thinPrism": "薄プリズム歪み",
+    "principalPoint": "主点",
+    "exifSuggestion": "EXIFデータからパラメータを取得しました",
+    "applyAll": "すべて適用",
+    "reprocess": "設定を更新して再処理",
+    "reprocessing": "再処理中...",
+    "pan": "パン角"
+  },
+  "language": {
+    "label": "言語",
+    "en": "English",
+    "ja": "日本語"
+  }
+}
