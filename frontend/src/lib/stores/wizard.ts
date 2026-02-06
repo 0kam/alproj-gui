@@ -406,10 +406,19 @@ function createWizardStore() {
 		 * Set GeoTIFF output path
 		 */
 		setGeotiffPath: (path: string | null) =>
-			update((state) => ({
-				...state,
-				geotiffPath: path
-			})),
+			update((state) => {
+				const nextProcessResult = state.processResult
+					? { ...state.processResult, geotiff_path: path ?? undefined }
+					: path
+						? { geotiff_path: path }
+						: null;
+
+				return {
+					...state,
+					geotiffPath: path,
+					processResult: nextProcessResult
+				};
+			}),
 
 		/**
 		 * Set project ID

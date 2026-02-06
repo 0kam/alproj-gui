@@ -54,6 +54,7 @@
 				: state.estimatedParams
 					? { optimized: state.estimatedParams }
 					: null,
+			geotiff_path: state.geotiffPath ?? null,
 			process_result: state.processResult ?? null,
 			matching_result: {
 				match_plot_len: state.matchingPlot?.length ?? 0,
