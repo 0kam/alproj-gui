@@ -97,10 +97,45 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         working-directory: backend
         run: |
+          set -euo pipefail
+
+          # Reinstall CPU wheels from the PyTorch CPU index.
           uv pip install --python .venv/bin/python \
             --index-url https://download.pytorch.org/whl/cpu \
             --upgrade --force-reinstall \
-            torch torchvision torchaudio
+            torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0
+
+          # Remove CUDA-related packages that may have been installed by uv sync.
+          CUDA_PKGS=$(uv run python - <<'PY'
+          import importlib.metadata as md
+
+          names = []
+          for dist in md.distributions():
+              name = dist.metadata.get("Name", "").strip()
+              lname = name.lower()
+              if lname.startswith("nvidia-") or lname in {"triton", "cuda-bindings"}:
+                  names.append(name)
+          print(" ".join(sorted(set(names))))
+          PY
+          )
+
+          if [ -n "$CUDA_PKGS" ]; then
+            uv pip uninstall --python .venv/bin/python -y $CUDA_PKGS
+          fi
+
+          # Sanity-check Linux torch build metadata.
+          uv run python - <<'PY'
+          import importlib.metadata as md
+          import torch
+
+          leftovers = sorted(
+              name
+              for name in (d.metadata.get("Name", "").strip() for d in md.distributions())
+              if name.lower().startswith("nvidia-") or name.lower() in {"triton", "cuda-bindings"}
+          )
+          print(f"torch.version.cuda={torch.version.cuda}")
+          print(f"cuda_related_packages={leftovers}")
+          PY
 
       # ============================================
       # Build Python Backend Sidecar
