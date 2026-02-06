@@ -62,9 +62,9 @@ Download the latest release from the [Releases](../../releases) page.
 
 ### macOS
 
-1. Download the `.dmg` file for your architecture:
+1. Download the `.dmg` file:
    - **Apple Silicon (M1/M2/M3)**: `ALPROJ-GUI_x.x.x_aarch64.dmg`
-   - **Intel**: `ALPROJ-GUI_x.x.x_x64.dmg`
+   - Intel macOS build is not provided in the current release workflow.
 
 2. Open the `.dmg` and drag the app to Applications folder
 
