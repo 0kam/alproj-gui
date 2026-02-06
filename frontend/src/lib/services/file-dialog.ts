@@ -176,6 +176,41 @@ export async function openImageDialog(): Promise<string | null> {
 }
 
 /**
+ * Open a file dialog to select multiple image files
+ * @returns Selected file paths (empty when cancelled)
+ */
+export async function openImageDialogs(): Promise<string[]> {
+	const filters: FileFilter[] = [
+		{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'tif', 'tiff'] },
+		{ name: 'All Files', extensions: ['*'] }
+	];
+
+	if (isTauri()) {
+		try {
+			const { open } = await import('@tauri-apps/plugin-dialog');
+			const result = (await open({
+				title: 'Select Image Files',
+				filters,
+				multiple: true
+			})) as string | string[] | null;
+			if (Array.isArray(result)) {
+				return result;
+			}
+			if (typeof result === 'string') {
+				return [result];
+			}
+			return [];
+		} catch (error) {
+			console.error('Failed to open file dialog:', error);
+			throw error;
+		}
+	} else {
+		const selected = await openWebFileDialog({ accept: '.jpg,.jpeg,.png,.tif,.tiff' });
+		return selected ? [selected] : [];
+	}
+}
+
+/**
  * Open a directory selection dialog
  * @param title - Dialog title
  * @returns Selected directory path or null if cancelled
@@ -318,6 +353,7 @@ export const fileDialog = {
 	saveProject: saveProjectDialog,
 	openRaster: openRasterDialog,
 	openImage: openImageDialog,
+	openImages: openImageDialogs,
 	openDirectory: openDirectoryDialog,
 	saveGeoTiff: saveGeoTiffDialog,
 	showMessage,

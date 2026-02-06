@@ -496,6 +496,10 @@ async def export_geotiff(
             return await run_export_job(
                 project_id=str(request.project_id),
                 output_path=request.output_path,
+                target_image_path=request.target_image_path,
+                target_image_paths=request.target_image_paths,
+                output_dir=request.output_dir,
+                output_name_template=request.output_name_template,
                 resolution=request.resolution,
                 crs=request.crs,
                 interpolate=request.interpolate,

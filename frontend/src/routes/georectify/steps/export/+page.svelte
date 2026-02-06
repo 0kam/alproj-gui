@@ -26,6 +26,7 @@
 	let hasError = false;
 	let errorMessage = '';
 	let exportedPath = $wizardStore.geotiffPath ?? '';
+	let exportedPaths: string[] = exportedPath ? [exportedPath] : [];
 
 	// Progress state
 	let progress = 0;
@@ -50,8 +51,8 @@
 	$: if (exportedPath && !isComplete) {
 		isComplete = true;
 	}
-	$: if (isComplete && exportedPath && !previewUrl && !previewError && !isExporting) {
-		void loadPreview(exportedPath);
+	$: if (isComplete && exportedPaths.length === 1 && !previewUrl && !previewError && !isExporting) {
+		void loadPreview(exportedPaths[0]);
 	}
 
 	function handleMapLoad(event: CustomEvent<{ map: maplibregl.Map }>) {
@@ -104,11 +105,19 @@
 					isComplete = true;
 					// Extract path from result
 					const result = data.result as ExportResult | null;
-					if (result?.path) {
-						exportedPath = result.path;
+					const paths = Array.isArray(result?.paths)
+						? result.paths.filter((path) => typeof path === 'string' && path.length > 0)
+						: result?.path
+							? [result.path]
+							: [];
+					if (paths.length > 0) {
+						exportedPaths = paths;
+						exportedPath = paths[0];
 						wizardStore.setGeotiffPath(exportedPath);
 						wizardStore.completeStep(4);
-						void loadPreview(exportedPath);
+						if (paths.length === 1) {
+							void loadPreview(paths[0]);
+						}
 					}
 					closeWebSocket();
 				} else if (data.status === 'failed') {
@@ -144,13 +153,21 @@
 								result?: ExportResult;
 								error?: string;
 							}>(`/api/jobs/${jobId}`);
-							if (job.status === 'completed' && job.result?.path) {
+							const paths = Array.isArray(job.result?.paths)
+								? job.result.paths.filter((path) => typeof path === 'string' && path.length > 0)
+								: job.result?.path
+									? [job.result.path]
+									: [];
+							if (job.status === 'completed' && paths.length > 0) {
 								isExporting = false;
 								isComplete = true;
-								exportedPath = job.result.path;
+								exportedPaths = paths;
+								exportedPath = paths[0];
 								wizardStore.setGeotiffPath(exportedPath);
 								wizardStore.completeStep(4);
-								void loadPreview(exportedPath);
+								if (paths.length === 1) {
+									void loadPreview(paths[0]);
+								}
 							} else if (job.status === 'failed') {
 								isExporting = false;
 								hasError = true;
@@ -216,6 +233,7 @@
 		closeWebSocket();
 		isComplete = false;
 		exportedPath = '';
+		exportedPaths = [];
 		jobId = null;
 		progress = 0;
 		progressStep = '';
@@ -306,21 +324,32 @@
 	{:else}
 		<Card title={t('export.mapPreview')}>
 			<div class="space-y-4">
-				<div class="text-sm text-gray-600">
-					{t('export.output')} <span class="font-mono text-xs">{exportedPath}</span>
-				</div>
-				<div class="h-96 border rounded-lg overflow-hidden">
-					<MapView
-						bounds={overlayBounds}
-						on:load={handleMapLoad}
-					>
-						{#if mapLoaded && map && previewUrl && overlayBounds}
-							<RasterOverlay {map} imageUrl={previewUrl} bounds={overlayBounds} />
-						{/if}
-					</MapView>
-				</div>
-				{#if previewError}
-					<p class="text-sm text-red-600">{previewError}</p>
+				{#if exportedPaths.length <= 1}
+					<div class="text-sm text-gray-600">
+						{t('export.output')} <span class="font-mono text-xs">{exportedPath}</span>
+					</div>
+					<div class="h-96 border rounded-lg overflow-hidden">
+						<MapView
+							bounds={overlayBounds}
+							on:load={handleMapLoad}
+						>
+							{#if mapLoaded && map && previewUrl && overlayBounds}
+								<RasterOverlay {map} imageUrl={previewUrl} bounds={overlayBounds} />
+							{/if}
+						</MapView>
+					</div>
+					{#if previewError}
+						<p class="text-sm text-red-600">{previewError}</p>
+					{/if}
+				{:else}
+					<div class="text-sm text-gray-600">
+						GeoTIFFを {exportedPaths.length} 件出力しました。
+					</div>
+					<div class="max-h-80 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs font-mono text-gray-700 space-y-1">
+						{#each exportedPaths as path}
+							<div class="break-all">{path}</div>
+						{/each}
+					</div>
 				{/if}
 			</div>
 			<svelte:fragment slot="footer">
