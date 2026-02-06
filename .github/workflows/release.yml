@@ -24,12 +24,15 @@ jobs:
           - platform: macos-14
             target: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
+            tauri_args: --target aarch64-apple-darwin
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
+            tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
+            tauri_args: --target x86_64-pc-windows-msvc
 
     runs-on: ${{ matrix.platform }}
 
@@ -278,7 +281,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: src-tauri
-          args: --target ${{ matrix.rust_target }}
+          args: ${{ matrix.tauri_args }}
 
       # ============================================
       # Upload Artifacts
@@ -298,7 +301,6 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
             src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
           if-no-files-found: error
 
