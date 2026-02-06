@@ -120,7 +120,7 @@ jobs:
           )
 
           if [ -n "$CUDA_PKGS" ]; then
-            uv pip uninstall --python .venv/bin/python -y $CUDA_PKGS
+            uv pip uninstall --python .venv/bin/python $CUDA_PKGS
           fi
 
           # Sanity-check Linux torch build metadata.
@@ -158,6 +158,7 @@ jobs:
             --add-data "$RASTERIO_GDAL_DATA:gdal_data" \
             --collect-all "PIL" \
             --collect-all "pillow_heif" \
+            --collect-all "imm" \
             --hidden-import "PIL._imaging" \
             --hidden-import "PIL._imagingft" \
             --hidden-import "app" \
@@ -218,6 +219,7 @@ jobs:
             --add-data "$RASTERIO_GDAL_DATA;gdal_data" `
             --collect-all "PIL" `
             --collect-all "pillow_heif" `
+            --collect-all "imm" `
             --hidden-import "PIL._imaging" `
             --hidden-import "PIL._imagingft" `
             --hidden-import "app" `

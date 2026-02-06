@@ -12,9 +12,21 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from pathlib import Path
 
 # Configure environment variables for PyInstaller bundled app
 # This must be done BEFORE importing pyproj/rasterio/gdal/imm
+def _get_runtime_model_weights_dir() -> Path:
+    """Return user-writable runtime directory for imm model weights."""
+    if sys.platform == "darwin":
+        base = Path.home() / "Library" / "Caches"
+    elif sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return base / "alproj-gui" / "imm" / "model_weights"
+
+
 def _configure_bundled_app() -> None:
     """Set environment variables for bundled PyInstaller app."""
     is_frozen = getattr(sys, 'frozen', False)
@@ -45,54 +57,61 @@ def _configure_bundled_app() -> None:
             os.environ['GDAL_DATA'] = gdal_data_dir
             print(f"[BUNDLE_CONFIG] Set GDAL_DATA={gdal_data_dir}", flush=True)
 
-        # === Configure HuggingFace and Torch cache for bundled models ===
-        # imm package uses these environment variables to find model weights
-        imm_weights_dir = os.path.join(bundle_dir, 'imm', 'model_weights')
-        print(f"[BUNDLE_CONFIG] imm_weights_dir={imm_weights_dir}", flush=True)
-        print(f"[BUNDLE_CONFIG] imm_weights_dir exists={os.path.exists(imm_weights_dir)}", flush=True)
+        # === Configure model cache (bundled if present, otherwise user cache) ===
+        bundled_weights_dir = Path(bundle_dir) / 'imm' / 'model_weights'
+        use_bundled_weights = bundled_weights_dir.exists()
+        runtime_weights_dir = _get_runtime_model_weights_dir()
+        active_weights_dir = bundled_weights_dir if use_bundled_weights else runtime_weights_dir
 
-        if os.path.exists(imm_weights_dir):
-            # Set HuggingFace cache - must set before importing huggingface_hub
-            hf_cache = os.path.join(imm_weights_dir, 'huggingface')
-            if os.path.exists(hf_cache):
-                os.environ['HF_HOME'] = hf_cache
-                os.environ['HUGGINGFACE_HUB_CACHE'] = os.path.join(hf_cache, 'hub')
-                os.environ['HF_HUB_OFFLINE'] = '1'  # Disable network access
-                print(f"[BUNDLE_CONFIG] Set HF_HOME={hf_cache}", flush=True)
+        print(f"[BUNDLE_CONFIG] bundled_weights_dir={bundled_weights_dir}", flush=True)
+        print(f"[BUNDLE_CONFIG] use_bundled_weights={use_bundled_weights}", flush=True)
+        print(f"[BUNDLE_CONFIG] runtime_weights_dir={runtime_weights_dir}", flush=True)
+        print(f"[BUNDLE_CONFIG] active_weights_dir={active_weights_dir}", flush=True)
 
-            # Set Torch cache - environment variables must be set BEFORE importing torch
-            # but torch may already be loaded by PyInstaller, so we also set torch.hub directly
-            torch_cache = os.path.join(imm_weights_dir, 'torch')
-            torch_hub_dir = os.path.join(torch_cache, 'hub')
-            if os.path.exists(torch_hub_dir):
-                os.environ['TORCH_HOME'] = torch_cache
-                print(f"[BUNDLE_CONFIG] Set TORCH_HOME={torch_cache}", flush=True)
+        try:
+            active_weights_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"[BUNDLE_CONFIG] Failed to create active weights dir: {e}", flush=True)
 
-                # Explicitly set torch.hub directory (works even after torch is imported)
-                try:
-                    import torch.hub
-                    torch.hub.set_dir(torch_hub_dir)
-                    print(f"[BUNDLE_CONFIG] Set torch.hub.set_dir({torch_hub_dir})", flush=True)
-                    print(f"[BUNDLE_CONFIG] Verify torch.hub.get_dir()={torch.hub.get_dir()}", flush=True)
-                except Exception as e:
-                    print(f"[BUNDLE_CONFIG] Failed to set torch.hub dir: {e}", flush=True)
+        hf_cache = active_weights_dir / 'huggingface'
+        hf_hub_cache = hf_cache / 'hub'
+        torch_cache = active_weights_dir / 'torch'
+        torch_hub_dir = torch_cache / 'hub'
 
-                # Also check checkpoints directory
-                checkpoints_dir = os.path.join(torch_hub_dir, 'checkpoints')
-                if os.path.exists(checkpoints_dir):
-                    print(f"[BUNDLE_CONFIG] checkpoints_dir exists: {checkpoints_dir}", flush=True)
-                    try:
-                        files = os.listdir(checkpoints_dir)[:5]
-                        print(f"[BUNDLE_CONFIG] checkpoints contents: {files}", flush=True)
-                    except Exception as e:
-                        print(f"[BUNDLE_CONFIG] Failed to list checkpoints: {e}", flush=True)
+        hf_hub_cache.mkdir(parents=True, exist_ok=True)
+        torch_hub_dir.mkdir(parents=True, exist_ok=True)
 
-            # List imm weights contents for debugging
-            try:
-                contents = os.listdir(imm_weights_dir)
-                print(f"[BUNDLE_CONFIG] imm_weights contents: {contents}", flush=True)
-            except Exception as e:
-                print(f"[BUNDLE_CONFIG] Failed to list imm_weights: {e}", flush=True)
+        os.environ['HF_HOME'] = str(hf_cache)
+        os.environ['HUGGINGFACE_HUB_CACHE'] = str(hf_hub_cache)
+        os.environ['TORCH_HOME'] = str(torch_cache)
+        if use_bundled_weights:
+            os.environ['HF_HUB_OFFLINE'] = '1'
+        else:
+            # Runtime download mode: do not force offline.
+            os.environ.pop('HF_HUB_OFFLINE', None)
+
+        print(f"[BUNDLE_CONFIG] Set HF_HOME={hf_cache}", flush=True)
+        print(f"[BUNDLE_CONFIG] Set HUGGINGFACE_HUB_CACHE={hf_hub_cache}", flush=True)
+        print(f"[BUNDLE_CONFIG] Set TORCH_HOME={torch_cache}", flush=True)
+
+        # Align torch.hub and imm.WEIGHTS_DIR with the selected model cache location.
+        try:
+            import torch.hub
+
+            torch.hub.set_dir(str(torch_hub_dir))
+            print(f"[BUNDLE_CONFIG] Set torch.hub.set_dir({torch_hub_dir})", flush=True)
+            print(f"[BUNDLE_CONFIG] Verify torch.hub.get_dir()={torch.hub.get_dir()}", flush=True)
+        except Exception as e:
+            print(f"[BUNDLE_CONFIG] Failed to set torch.hub dir: {e}", flush=True)
+
+        try:
+            import imm
+
+            imm.WEIGHTS_DIR = active_weights_dir
+            imm.WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+            print(f"[BUNDLE_CONFIG] Set imm.WEIGHTS_DIR={imm.WEIGHTS_DIR}", flush=True)
+        except Exception as e:
+            print(f"[BUNDLE_CONFIG] Failed to configure imm.WEIGHTS_DIR: {e}", flush=True)
 
         # List bundle_dir top-level contents for debugging
         try:
