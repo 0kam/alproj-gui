@@ -29,7 +29,7 @@ jobs:
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
-            tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
+            tauri_args: --target x86_64-unknown-linux-gnu --bundles deb
             pyinstaller_mode: onedir
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
@@ -338,7 +338,7 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
           if-no-files-found: error
 
       - name: Upload artifacts (Windows)
