@@ -176,7 +176,7 @@
     "error": "エクスポートエラー",
     "mapPreview": "GeoTIFFマッププレビュー",
     "output": "出力:",
-    "reexport": "別のファイルにエクスポート",
+    "reexport": "再エクスポート/別の画像をGeoTIFF化",
     "steps": {
       "starting": "開始中...",
       "validating": "パラメータ検証中...",
