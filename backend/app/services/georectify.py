@@ -1420,7 +1420,8 @@ async def run_export_job(
         # Step 7: Finalize
         await update_progress(0.95, "finalizing", "Finalizing...")
 
-        if project.process_result is not None and output_paths:
+        should_update_primary_geotiff = (not is_batch) and (single_target is None)
+        if project.process_result is not None and output_paths and should_update_primary_geotiff:
             project.process_result.geotiff_path = output_paths[0]
             save_project(project)
 
