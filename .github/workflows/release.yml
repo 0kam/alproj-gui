@@ -384,13 +384,16 @@ jobs:
         run: |
           set -euo pipefail
           split_happened=0
+          split_files=()
           while IFS= read -r -d '' file; do
             size=$(stat -c%s "$file")
             if [ "$size" -gt 2000000000 ]; then
               echo "Splitting oversized asset: $file (${size} bytes)"
+              base_name=$(basename "$file")
               split -b 1900m -d -a 3 "$file" "${file}.part-"
               rm -f "$file"
               split_happened=1
+              split_files+=("$base_name")
             fi
           done < <(find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" \) -print0)
 
@@ -398,8 +401,10 @@ jobs:
             cat > artifacts/LINUX_ASSET_REASSEMBLY.txt <<'EOF'
           Linux installer was split because GitHub Release assets are limited to 2GB each.
           Reassemble with:
-          cat "ALPROJ GUI_0.1.0_amd64.deb.part-"* > "ALPROJ GUI_0.1.0_amd64.deb"
           EOF
+            for base_name in "${split_files[@]}"; do
+              echo "cat \"${base_name}.part-\"* > \"${base_name}\"" >> artifacts/LINUX_ASSET_REASSEMBLY.txt
+            done
           fi
 
           find artifacts -type f | head -300
