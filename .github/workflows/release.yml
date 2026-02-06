@@ -75,42 +75,6 @@ jobs:
       # ============================================
       # Build Python Backend Sidecar
       # ============================================
-      - name: Download ML models
-        working-directory: backend
-        run: |
-          uv run python scripts/download_models.py
-
-      - name: Prepare imm model weights (Unix)
-        if: matrix.platform != 'windows-latest'
-        working-directory: backend
-        run: |
-          IMM_MODEL_WEIGHTS=$(uv run python -c "import imm, os; print(os.path.join(os.path.dirname(imm.__file__), 'model_weights'))")
-          mkdir -p "$IMM_MODEL_WEIGHTS"
-
-          if [ -d models/huggingface ]; then
-            cp -R models/huggingface "$IMM_MODEL_WEIGHTS/"
-          fi
-
-          if [ -d models/torch ]; then
-            cp -R models/torch "$IMM_MODEL_WEIGHTS/"
-          fi
-
-      - name: Prepare imm model weights (Windows)
-        if: matrix.platform == 'windows-latest'
-        working-directory: backend
-        shell: pwsh
-        run: |
-          $IMM_MODEL_WEIGHTS = uv run python -c "import imm, os; print(os.path.join(os.path.dirname(imm.__file__), 'model_weights'))"
-          New-Item -ItemType Directory -Force -Path $IMM_MODEL_WEIGHTS | Out-Null
-
-          if (Test-Path "models/huggingface") {
-            Copy-Item -Recurse -Force "models/huggingface" "$IMM_MODEL_WEIGHTS/"
-          }
-
-          if (Test-Path "models/torch") {
-            Copy-Item -Recurse -Force "models/torch" "$IMM_MODEL_WEIGHTS/"
-          }
-
       - name: Build backend sidecar (Unix)
         if: matrix.platform != 'windows-latest'
         working-directory: backend
@@ -129,7 +93,6 @@ jobs:
             --add-data "$RASTERIO_GDAL_DATA:gdal_data" \
             --collect-all "PIL" \
             --collect-all "pillow_heif" \
-            --collect-all "imm" \
             --hidden-import "PIL._imaging" \
             --hidden-import "PIL._imagingft" \
             --hidden-import "app" \
@@ -190,7 +153,6 @@ jobs:
             --add-data "$RASTERIO_GDAL_DATA;gdal_data" `
             --collect-all "PIL" `
             --collect-all "pillow_heif" `
-            --collect-all "imm" `
             --hidden-import "PIL._imaging" `
             --hidden-import "PIL._imagingft" `
             --hidden-import "app" `
@@ -250,6 +212,18 @@ jobs:
           Rename-Item `
             -Path src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar.exe `
             -NewName backend-sidecar-${{ matrix.target }}.exe
+
+      - name: Cleanup backend build files (Unix)
+        if: matrix.platform != 'windows-latest'
+        run: |
+          rm -rf backend/.venv backend/build backend/dist backend/models
+          rm -rf ~/.cache/pip ~/.cache/uv
+
+      - name: Cleanup backend build files (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force backend/.venv,backend/build,backend/dist,backend/models -ErrorAction SilentlyContinue
 
       # ============================================
       # Node.js Setup (for frontend)

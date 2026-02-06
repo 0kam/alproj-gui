@@ -106,12 +106,9 @@ def get_model_info(model_name: str) -> ModelInfo:
         "ufm": 3400,
     }
 
-    # Check if model is available (either bundled or in cache)
-    available = bundled  # For now, only bundled models are available
-
-    if not bundled and model_name in DOWNLOADABLE_MODELS:
-        # Check user cache for downloadable models
-        available = _check_model_in_cache(model_name)
+    # Bundled models are always usable.
+    # If they are not bundled, imm can download them at runtime.
+    available = model_name in BUNDLED_MODELS or model_name in DOWNLOADABLE_MODELS
 
     return ModelInfo(
         name=model_name,
@@ -119,20 +116,6 @@ def get_model_info(model_name: str) -> ModelInfo:
         bundled=bundled,
         size_mb=sizes.get(model_name, 0),
     )
-
-
-def _check_model_in_cache(model_name: str) -> bool:
-    """Check if a model exists in the user's cache."""
-    home = Path.home()
-    hf_cache = home / ".cache" / "huggingface" / "hub"
-
-    # Map model names to HuggingFace repo names
-    hf_repos = {
-        "ufm": ["models--infinity1096--UFM-Base", "models--infinity1096--UFM-Refine"],
-    }
-
-    repos = hf_repos.get(model_name, [])
-    return all((hf_cache / repo).exists() for repo in repos)
 
 
 def list_available_models() -> list[ModelInfo]:
