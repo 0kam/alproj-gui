@@ -8,7 +8,7 @@
 import type { ProcessResult } from '$lib/types';
 
 // WebSocket configuration
-const WS_BASE_URL = 'ws://localhost:8765';
+const WS_BASE_URL = 'ws://127.0.0.1:8765';
 const RECONNECT_DELAY = 1000; // ms
 const MAX_RECONNECT_ATTEMPTS = 5;
 

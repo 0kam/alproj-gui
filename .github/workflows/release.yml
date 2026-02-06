@@ -146,6 +146,7 @@ jobs:
         run: |
           RASTERIO_PROJ_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))")
           RASTERIO_GDAL_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))")
+          PYPROJ_DATA=$(uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())")
 
           uv run pyinstaller \
             --${{ matrix.pyinstaller_mode }} \
@@ -156,6 +157,7 @@ jobs:
             --log-level WARN \
             --add-data "$RASTERIO_PROJ_DATA:proj_data" \
             --add-data "$RASTERIO_GDAL_DATA:gdal_data" \
+            --add-data "$PYPROJ_DATA:pyproj_data" \
             --collect-all "PIL" \
             --collect-all "pillow_heif" \
             --collect-all "imm" \
@@ -200,6 +202,49 @@ jobs:
             --add-data "app:app" \
             app/main.py
 
+      - name: Smoke test backend sidecar (Unix)
+        if: matrix.platform != 'windows-latest'
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          SIDECARENTRY="dist/backend-sidecar/backend-sidecar"
+          LOGFILE="$RUNNER_TEMP/backend-sidecar-smoke.log"
+
+          "$SIDECARENTRY" --host 127.0.0.1 --port 18765 >"$LOGFILE" 2>&1 &
+          SIDECAR_PID=$!
+
+          cleanup() {
+            kill "$SIDECAR_PID" >/dev/null 2>&1 || true
+            wait "$SIDECAR_PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          if ! uv run python - <<'PY'
+          import json
+          import time
+          import urllib.request
+          from urllib.error import URLError
+
+          deadline = time.time() + 60
+          url = "http://127.0.0.1:18765/api/health"
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(url, timeout=2) as resp:
+                      if resp.status == 200:
+                          payload = json.loads(resp.read().decode("utf-8"))
+                          if payload.get("status") == "ok":
+                              raise SystemExit(0)
+              except URLError:
+                  pass
+              time.sleep(0.5)
+          raise SystemExit(1)
+          PY
+          then
+            echo "Backend sidecar smoke test failed (Unix)"
+            tail -n 200 "$LOGFILE" || true
+            exit 1
+          fi
+
       - name: Build backend sidecar (Windows)
         if: matrix.platform == 'windows-latest'
         working-directory: backend
@@ -207,6 +252,7 @@ jobs:
         run: |
           $RASTERIO_PROJ_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))"
           $RASTERIO_GDAL_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))"
+          $PYPROJ_DATA = uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())"
 
           uv run pyinstaller `
             --onedir `
@@ -217,6 +263,7 @@ jobs:
             --log-level WARN `
             --add-data "$RASTERIO_PROJ_DATA;proj_data" `
             --add-data "$RASTERIO_GDAL_DATA;gdal_data" `
+            --add-data "$PYPROJ_DATA;pyproj_data" `
             --collect-all "PIL" `
             --collect-all "pillow_heif" `
             --collect-all "imm" `
@@ -260,6 +307,53 @@ jobs:
             --hidden-import "huggingface_hub" `
             --add-data "app;app" `
             app/main.py
+
+      - name: Smoke test backend sidecar (Windows)
+        if: matrix.platform == 'windows-latest'
+        working-directory: backend
+        shell: pwsh
+        run: |
+          $sidecar = Join-Path $PWD "dist/backend-sidecar/backend-sidecar.exe"
+          $logPath = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.log"
+          $proc = Start-Process `
+            -FilePath $sidecar `
+            -ArgumentList "--host","127.0.0.1","--port","18765" `
+            -RedirectStandardOutput $logPath `
+            -RedirectStandardError $logPath `
+            -PassThru
+
+          try {
+            $deadline = (Get-Date).AddSeconds(60)
+            $ready = $false
+            while ((Get-Date) -lt $deadline) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:18765/api/health" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {}
+
+              if ($proc.HasExited) {
+                break
+              }
+            }
+
+            if (-not $ready) {
+              if ($proc.HasExited) {
+                Write-Host "Backend sidecar exited early with code: $($proc.ExitCode)"
+              }
+              if (Test-Path $logPath) {
+                Get-Content $logPath -Tail 200
+              }
+              throw "Backend sidecar smoke test failed (Windows)"
+            }
+          } finally {
+            if (-not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force
+            }
+          }
 
       - name: Copy sidecar to Tauri binaries (macOS onedir)
         if: startsWith(matrix.platform, 'macos')

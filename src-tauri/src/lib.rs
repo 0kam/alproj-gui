@@ -2,6 +2,10 @@
 // This module initializes the Tauri application and manages the Python sidecar
 
 use log::{error, info, warn};
+use std::fs::{self, OpenOptions};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use sysinfo::{Pid, System};
@@ -10,15 +14,15 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
 use tokio::time::{sleep, Duration};
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 
 /// Backend configuration
 const BACKEND_HOST: &str = "127.0.0.1";
 const BACKEND_PORT: u16 = 8765;
 const HEALTH_CHECK_URL: &str = "http://127.0.0.1:8765/api/health";
+const HEALTH_CHECK_URL_LOCALHOST: &str = "http://localhost:8765/api/health";
 const HEALTH_CHECK_TIMEOUT_SECS: u64 = 180;
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
+const BACKEND_LOG_FILE_NAME: &str = "backend-sidecar.log";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -66,7 +70,11 @@ fn kill_process_tree(root_pid: u32) {
     // Kill descendants in reverse order (children before parents)
     for pid in descendants.iter().rev() {
         if let Some(process) = sys.process(Pid::from_u32(*pid)) {
-            info!("Killing child process {} ({})", pid, process.name().to_string_lossy());
+            info!(
+                "Killing child process {} ({})",
+                pid,
+                process.name().to_string_lossy()
+            );
             process.kill();
         }
     }
@@ -97,6 +105,8 @@ pub struct AppState {
     pub sidecar: Mutex<Option<ProcessHandle>>,
     /// Backend ready flag
     pub backend_ready: Mutex<bool>,
+    /// Sidecar log file path (production mode)
+    pub backend_log_path: Mutex<Option<PathBuf>>,
 }
 
 impl Default for AppState {
@@ -104,8 +114,93 @@ impl Default for AppState {
         Self {
             sidecar: Mutex::new(None),
             backend_ready: Mutex::new(false),
+            backend_log_path: Mutex::new(None),
         }
     }
+}
+
+fn resolve_backend_log_path(app: &tauri::AppHandle) -> PathBuf {
+    if let Ok(log_dir) = app.path().app_log_dir() {
+        return log_dir.join(BACKEND_LOG_FILE_NAME);
+    }
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        return data_dir.join("logs").join(BACKEND_LOG_FILE_NAME);
+    }
+    std::env::temp_dir()
+        .join("alproj-gui")
+        .join(BACKEND_LOG_FILE_NAME)
+}
+
+fn format_log_tail(log_path: &Path, max_lines: usize) -> String {
+    let bytes = match fs::read(log_path) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            return format!("Backend log read failed: {} ({})", e, log_path.display());
+        }
+    };
+
+    let text = String::from_utf8_lossy(&bytes);
+    let lines: Vec<&str> = text.lines().collect();
+    let start = lines.len().saturating_sub(max_lines);
+    let mut tail = lines[start..].join("\n");
+
+    const MAX_CHARS: usize = 4000;
+    if tail.chars().count() > MAX_CHARS {
+        tail = tail
+            .chars()
+            .rev()
+            .take(MAX_CHARS)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect::<String>();
+    }
+
+    format!(
+        "Backend log: {}\n--- log tail ---\n{}\n----------------",
+        log_path.display(),
+        tail
+    )
+}
+
+async fn read_backend_log_tail(state: &Arc<AppState>, max_lines: usize) -> Option<String> {
+    let log_path = state.backend_log_path.lock().await.clone();
+    log_path.map(|path| format_log_tail(&path, max_lines))
+}
+
+async fn check_sidecar_exited(state: &Arc<AppState>) -> Option<String> {
+    let exit = {
+        let mut sidecar = state.sidecar.lock().await;
+        match sidecar.as_mut() {
+            Some(ProcessHandle::StdChild(child)) => match child.try_wait() {
+                Ok(Some(status)) => Some(status),
+                Ok(None) => None,
+                Err(e) => {
+                    return Some(format!("Failed to query backend process status: {}", e));
+                }
+            },
+            _ => None,
+        }
+    };
+
+    if let Some(status) = exit {
+        let code_text = match status.code() {
+            Some(code) => format!("exit code {}", code),
+            None => "terminated by signal".to_string(),
+        };
+        if let Some(log_tail) = read_backend_log_tail(state, 80).await {
+            return Some(format!(
+                "Backend process exited before ready ({})\n{}",
+                code_text, log_tail
+            ));
+        }
+        return Some(format!(
+            "Backend process exited before ready ({})",
+            code_text
+        ));
+    }
+
+    None
 }
 
 /// Check if we're running in development mode
@@ -145,33 +240,53 @@ fn find_uv_path() -> Option<String> {
 /// Get the platform-specific sidecar directory name
 fn get_sidecar_dir_name() -> &'static str {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    { "sidecar-aarch64-apple-darwin" }
+    {
+        "sidecar-aarch64-apple-darwin"
+    }
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    { "sidecar-x86_64-apple-darwin" }
+    {
+        "sidecar-x86_64-apple-darwin"
+    }
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    { "sidecar-aarch64-unknown-linux-gnu" }
+    {
+        "sidecar-aarch64-unknown-linux-gnu"
+    }
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    { "sidecar-x86_64-unknown-linux-gnu" }
+    {
+        "sidecar-x86_64-unknown-linux-gnu"
+    }
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    { "sidecar-x86_64-pc-windows-msvc" }
+    {
+        "sidecar-x86_64-pc-windows-msvc"
+    }
 }
 
 /// Get the platform-specific sidecar binary name
 fn get_sidecar_binary_name() -> &'static str {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    { "backend-sidecar-aarch64-apple-darwin" }
+    {
+        "backend-sidecar-aarch64-apple-darwin"
+    }
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    { "backend-sidecar-x86_64-apple-darwin" }
+    {
+        "backend-sidecar-x86_64-apple-darwin"
+    }
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    { "backend-sidecar-aarch64-unknown-linux-gnu" }
+    {
+        "backend-sidecar-aarch64-unknown-linux-gnu"
+    }
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    { "backend-sidecar-x86_64-unknown-linux-gnu" }
+    {
+        "backend-sidecar-x86_64-unknown-linux-gnu"
+    }
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    { "backend-sidecar-x86_64-pc-windows-msvc.exe" }
+    {
+        "backend-sidecar-x86_64-pc-windows-msvc.exe"
+    }
 }
 
 /// Start the Python backend sidecar process
-async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> {
+async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<PathBuf>), String> {
     if is_dev_mode() {
         // Development mode: use std::process::Command with uv
         info!("Starting backend in development mode with uv");
@@ -189,7 +304,8 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
             .to_path_buf();
 
         // Project root is one level up from src-tauri
-        let backend_dir = src_tauri_dir.parent()
+        let backend_dir = src_tauri_dir
+            .parent()
             .ok_or("Failed to get project root")?
             .join("backend");
 
@@ -197,7 +313,10 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
 
         // Verify backend directory exists
         if !backend_dir.exists() {
-            return Err(format!("Backend directory does not exist: {:?}", backend_dir));
+            return Err(format!(
+                "Backend directory does not exist: {:?}",
+                backend_dir
+            ));
         }
 
         // Try to find uv in common locations since Tauri doesn't inherit shell PATH
@@ -222,7 +341,7 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
 
         info!("Backend process started with PID: {:?}", child.id());
 
-        Ok(ProcessHandle::StdChild(child))
+        Ok((ProcessHandle::StdChild(child), None))
     } else {
         // Production mode: use bundled sidecar from resources
         // The sidecar is built with PyInstaller --onedir and needs _internal next to it
@@ -246,13 +365,26 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
 
         // Start the sidecar process
         // Must run from sidecar_dir so it can find _internal
+        let log_path = resolve_backend_log_path(app);
+        if let Some(parent) = log_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create backend log dir {:?}: {}", parent, e))?;
+        }
+        let stdout_log = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .map_err(|e| format!("Failed to open backend log file {:?}: {}", log_path, e))?;
+        let stderr_log = stdout_log
+            .try_clone()
+            .map_err(|e| format!("Failed to clone backend log file handle: {}", e))?;
+
         let mut command = Command::new(&sidecar_path);
         command
             .args(["--host", BACKEND_HOST, "--port", &BACKEND_PORT.to_string()])
             .current_dir(&sidecar_dir)
-            // Avoid deadlock from unread stdout/stderr pipes in GUI mode.
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(Stdio::from(stdout_log))
+            .stderr(Stdio::from(stderr_log));
 
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);
@@ -262,13 +394,14 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<ProcessHandle, String> 
             .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
         info!("Backend process started with PID: {:?}", child.id());
+        info!("Backend log path: {:?}", log_path);
 
-        Ok(ProcessHandle::StdChild(child))
+        Ok((ProcessHandle::StdChild(child), Some(log_path)))
     }
 }
 
 /// Wait for the backend to become ready by polling the health endpoint
-async fn wait_for_backend() -> Result<(), String> {
+async fn wait_for_backend(state: &Arc<AppState>) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
@@ -276,25 +409,36 @@ async fn wait_for_backend() -> Result<(), String> {
 
     let start = std::time::Instant::now();
     let timeout = Duration::from_secs(HEALTH_CHECK_TIMEOUT_SECS);
+    let health_urls = [HEALTH_CHECK_URL, HEALTH_CHECK_URL_LOCALHOST];
 
-    info!("Waiting for backend to become ready at {}", HEALTH_CHECK_URL);
+    info!(
+        "Waiting for backend to become ready at {}",
+        HEALTH_CHECK_URL
+    );
 
     while start.elapsed() < timeout {
-        match client.get(HEALTH_CHECK_URL).send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    info!("Backend is ready!");
-                    return Ok(());
+        if let Some(exit_error) = check_sidecar_exited(state).await {
+            return Err(exit_error);
+        }
+
+        for url in health_urls {
+            match client.get(url).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        info!("Backend is ready at {}", url);
+                        return Ok(());
+                    }
+                    warn!(
+                        "Backend returned non-success status at {}: {}",
+                        url,
+                        response.status()
+                    );
                 }
-                warn!(
-                    "Backend returned non-success status: {}",
-                    response.status()
-                );
-            }
-            Err(e) => {
-                // Connection refused is expected while backend is starting
-                if !e.is_connect() {
-                    warn!("Health check failed: {}", e);
+                Err(e) => {
+                    // Connection refused is expected while backend is starting
+                    if !e.is_connect() {
+                        warn!("Health check failed at {}: {}", url, e);
+                    }
                 }
             }
         }
@@ -302,10 +446,15 @@ async fn wait_for_backend() -> Result<(), String> {
         sleep(Duration::from_millis(HEALTH_CHECK_INTERVAL_MS)).await;
     }
 
-    Err(format!(
+    let mut error_message = format!(
         "Backend failed to start within {} seconds",
         HEALTH_CHECK_TIMEOUT_SECS
-    ))
+    );
+    if let Some(log_tail) = read_backend_log_tail(state, 80).await {
+        error_message.push('\n');
+        error_message.push_str(&log_tail);
+    }
+    Err(error_message)
 }
 
 /// Stop the sidecar process gracefully
@@ -348,12 +497,13 @@ pub fn run() {
 
             tauri::async_runtime::spawn(async move {
                 match start_sidecar(&app_handle).await {
-                    Ok(child) => {
+                    Ok((child, log_path)) => {
                         // Store the child process handle
                         *state.sidecar.lock().await = Some(child);
+                        *state.backend_log_path.lock().await = log_path;
 
                         // Wait for backend to be ready
-                        match wait_for_backend().await {
+                        match wait_for_backend(&state).await {
                             Ok(()) => {
                                 *state.backend_ready.lock().await = true;
                                 info!("Backend initialization complete");
@@ -434,7 +584,10 @@ async fn check_backend_health() -> Result<serde_json::Value, String> {
         .map_err(|e| format!("Health check request failed: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Health check failed with status: {}", response.status()));
+        return Err(format!(
+            "Health check failed with status: {}",
+            response.status()
+        ));
     }
 
     response
