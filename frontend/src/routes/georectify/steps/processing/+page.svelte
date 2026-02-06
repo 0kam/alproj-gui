@@ -26,6 +26,7 @@
 	let isRunning = false;
 	let hasError = false;
 	let errorMessage = '';
+	let showModelDownloadProgress = false;
 	let modelDownloadProgress = 0;
 	let hasModelDownloadPercent = false;
 	let modelLogPollTimer: IntervalId | null = null;
@@ -127,6 +128,19 @@
 			.filter((line) => line.length > 0);
 	}
 
+	function hasDownloadSignals(lines: string[]): boolean {
+		return lines.some((line) => {
+			const lower = line.toLowerCase();
+			return (
+				lower.includes('downloading:') ||
+				lower.includes('download') ||
+				lower.includes('fetching') ||
+				lower.includes('.partial') ||
+				/\d{1,3}%\|/.test(line)
+			);
+		});
+	}
+
 	function extractPercentFromLines(lines: string[]): number | null {
 		let latest: number | null = null;
 		for (const line of lines) {
@@ -169,6 +183,9 @@
 			if (lines.length === 0) return;
 
 			appendMatchLogs(lines);
+			if (!showModelDownloadProgress && hasDownloadSignals(lines)) {
+				showModelDownloadProgress = true;
+			}
 			const percent = extractPercentFromLines(lines);
 			if (percent !== null) {
 				hasModelDownloadPercent = true;
@@ -183,6 +200,7 @@
 
 	async function startModelDownloadProgress(): Promise<void> {
 		stopModelDownloadProgress();
+		showModelDownloadProgress = false;
 		modelDownloadProgress = 0;
 		hasModelDownloadPercent = false;
 		backendLogOffset = 0;
@@ -411,7 +429,7 @@
 		</svelte:fragment>
 	</Card>
 
-	{#if isRunning}
+	{#if isRunning && showModelDownloadProgress}
 		<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
 			<div class="flex items-center justify-between">
 				<span>{t('matching.modelDownloadNotice')}</span>
