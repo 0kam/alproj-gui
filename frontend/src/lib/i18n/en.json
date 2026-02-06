@@ -176,7 +176,7 @@
     "error": "Export Error",
     "mapPreview": "GeoTIFF Map Preview",
     "output": "Output:",
-    "reexport": "Re-export",
+    "reexport": "Export to another file",
     "steps": {
       "starting": "Starting...",
       "validating": "Validating parameters...",
