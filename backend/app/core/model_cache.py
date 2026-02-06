@@ -10,6 +10,24 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def configure_ssl_certificates() -> Path | None:
+    """Configure CA bundle environment variables for HTTPS downloads."""
+    try:
+        import certifi
+
+        ca_bundle = Path(certifi.where())
+        if not ca_bundle.exists():
+            return None
+
+        os.environ.setdefault("SSL_CERT_FILE", str(ca_bundle))
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", str(ca_bundle))
+        os.environ.setdefault("CURL_CA_BUNDLE", str(ca_bundle))
+        return ca_bundle
+    except Exception as exc:
+        logger.warning("Failed to configure SSL certificates: %s", exc)
+        return None
+
+
 def get_runtime_model_weights_dir() -> Path:
     """Return user-writable runtime directory for imm model weights."""
     if sys.platform == "darwin":
@@ -66,6 +84,7 @@ def configure_model_cache_environment(bundle_dir: str | Path | None = None) -> P
 
 def configure_imm_runtime(bundle_dir: str | Path | None = None) -> Path:
     """Configure imm/torch runtime paths and return active weights directory."""
+    configure_ssl_certificates()
     active_weights_dir = configure_model_cache_environment(bundle_dir)
 
     torch_hub_dir = active_weights_dir / "torch" / "hub"

@@ -127,6 +127,7 @@
     "thresholdHelp": "Threshold (px) for fundamental-matrix-based outlier detection. Increase it if correspondences cannot be found near image edges (e.g., with strong lens distortion).",
     "run": "Run Matching",
     "running": "Matching...",
+    "modelDownloadNotice": "Downloading matching model (only on first run)",
     "error": "Matching Error",
     "failed": "Matching failed",
     "result": "Matching Result",

@@ -281,6 +281,12 @@
 		</svelte:fragment>
 	</Card>
 
+	{#if isRunning}
+		<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+			{t('matching.modelDownloadNotice')}
+		</div>
+	{/if}
+
 	{#if hasError}
 		<div class="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
 			<div class="flex items-start">
