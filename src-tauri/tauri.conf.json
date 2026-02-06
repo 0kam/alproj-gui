@@ -54,7 +54,7 @@
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15",
-      "signingIdentity": null
+      "signingIdentity": "-"
     },
     "windows": {
       "certificateThumbprint": null,
