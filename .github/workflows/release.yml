@@ -30,7 +30,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
             tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
-            pyinstaller_mode: onefile
+            pyinstaller_mode: onedir
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
@@ -91,6 +91,15 @@ jobs:
         working-directory: backend
         run: |
           uv sync --group dev --frozen
+
+      - name: Use CPU-only PyTorch on Linux
+        if: matrix.platform == 'ubuntu-22.04'
+        working-directory: backend
+        run: |
+          uv pip install --python .venv/bin/python \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --upgrade --force-reinstall \
+            torch torchvision torchaudio
 
       # ============================================
       # Build Python Backend Sidecar
@@ -224,12 +233,13 @@ jobs:
             src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
           chmod +x src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
 
-      - name: Copy sidecar to Tauri binaries (Linux onefile)
+      - name: Copy sidecar to Tauri binaries (Linux onedir)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           rm -rf src-tauri/binaries/sidecar-${{ matrix.target }}
-          mkdir -p src-tauri/binaries/sidecar-${{ matrix.target }}
-          mv backend/dist/backend-sidecar \
+          mkdir -p src-tauri/binaries
+          mv backend/dist/backend-sidecar src-tauri/binaries/sidecar-${{ matrix.target }}
+          mv src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar \
             src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
           chmod +x src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
 
