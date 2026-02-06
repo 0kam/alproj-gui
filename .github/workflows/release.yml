@@ -8,7 +8,7 @@ on:
     inputs:
       tag:
         description: 'Release tag (e.g., v0.1.0)'
-        required: false
+        required: true
         type: string
 
 env:
@@ -20,10 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          - platform: macos-14
             target: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
-          - platform: macos-latest
+          - platform: macos-13
             target: x86_64-apple-darwin
             rust_target: x86_64-apple-darwin
           - platform: ubuntu-22.04
@@ -47,11 +47,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libappindicator3-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libsoup-3.0-dev \
             librsvg2-dev \
             patchelf \
-            libgtk-3-dev \
             libglib2.0-dev \
             libgdal-dev
 
@@ -66,7 +67,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
-          version: "latest"
+          version: 'latest'
 
       - name: Install backend dependencies
         working-directory: backend
@@ -81,12 +82,43 @@ jobs:
         run: |
           uv run python scripts/download_models.py
 
+      - name: Prepare imm model weights (Unix)
+        if: matrix.platform != 'windows-latest'
+        working-directory: backend
+        run: |
+          IMM_MODEL_WEIGHTS=$(uv run python -c "import imm, os; print(os.path.join(os.path.dirname(imm.__file__), 'model_weights'))")
+          mkdir -p "$IMM_MODEL_WEIGHTS"
+
+          if [ -d models/huggingface ]; then
+            cp -R models/huggingface "$IMM_MODEL_WEIGHTS/"
+          fi
+
+          if [ -d models/torch ]; then
+            cp -R models/torch "$IMM_MODEL_WEIGHTS/"
+          fi
+
+      - name: Prepare imm model weights (Windows)
+        if: matrix.platform == 'windows-latest'
+        working-directory: backend
+        shell: pwsh
+        run: |
+          $IMM_MODEL_WEIGHTS = uv run python -c "import imm, os; print(os.path.join(os.path.dirname(imm.__file__), 'model_weights'))"
+          New-Item -ItemType Directory -Force -Path $IMM_MODEL_WEIGHTS | Out-Null
+
+          if (Test-Path "models/huggingface") {
+            Copy-Item -Recurse -Force "models/huggingface" "$IMM_MODEL_WEIGHTS/"
+          }
+
+          if (Test-Path "models/torch") {
+            Copy-Item -Recurse -Force "models/torch" "$IMM_MODEL_WEIGHTS/"
+          }
+
       - name: Build backend sidecar (Unix)
         if: matrix.platform != 'windows-latest'
         working-directory: backend
         run: |
-          # Get PROJ data directory
-          PROJ_DATA_DIR=$(uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())")
+          RASTERIO_PROJ_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))")
+          RASTERIO_GDAL_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))")
 
           uv run pyinstaller \
             --onedir \
@@ -95,9 +127,11 @@ jobs:
             --noconfirm \
             --noupx \
             --log-level WARN \
-            --add-data "$PROJ_DATA_DIR:proj" \
+            --add-data "$RASTERIO_PROJ_DATA:proj_data" \
+            --add-data "$RASTERIO_GDAL_DATA:gdal_data" \
             --collect-all "PIL" \
             --collect-all "pillow_heif" \
+            --collect-all "imm" \
             --hidden-import "PIL._imaging" \
             --hidden-import "PIL._imagingft" \
             --hidden-import "app" \
@@ -137,7 +171,6 @@ jobs:
             --hidden-import "kornia" \
             --hidden-import "huggingface_hub" \
             --add-data "app:app" \
-            --add-data "models:models" \
             app/main.py
 
       - name: Build backend sidecar (Windows)
@@ -145,8 +178,8 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          # Get PROJ data directory
-          $PROJ_DATA_DIR = uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())"
+          $RASTERIO_PROJ_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))"
+          $RASTERIO_GDAL_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))"
 
           uv run pyinstaller `
             --onedir `
@@ -155,9 +188,11 @@ jobs:
             --noconfirm `
             --noupx `
             --log-level WARN `
-            --add-data "$PROJ_DATA_DIR;proj" `
+            --add-data "$RASTERIO_PROJ_DATA;proj_data" `
+            --add-data "$RASTERIO_GDAL_DATA;gdal_data" `
             --collect-all "PIL" `
             --collect-all "pillow_heif" `
+            --collect-all "imm" `
             --hidden-import "PIL._imaging" `
             --hidden-import "PIL._imagingft" `
             --hidden-import "app" `
@@ -197,7 +232,6 @@ jobs:
             --hidden-import "kornia" `
             --hidden-import "huggingface_hub" `
             --add-data "app;app" `
-            --add-data "models;models" `
             app/main.py
 
       - name: Copy sidecar to Tauri binaries (Unix)
@@ -249,39 +283,13 @@ jobs:
       # ============================================
       # Build Tauri App
       # ============================================
-      - name: Build Tauri app (macOS aarch64)
-        if: matrix.target == 'aarch64-apple-darwin'
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: src-tauri
-          args: --target aarch64-apple-darwin
-
-      - name: Build Tauri app (macOS x86_64)
-        if: matrix.target == 'x86_64-apple-darwin'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: src-tauri
-          args: --target x86_64-apple-darwin
-
-      - name: Build Tauri app (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: src-tauri
-
-      - name: Build Tauri app (Windows)
-        if: matrix.platform == 'windows-latest'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: src-tauri
+          args: --target ${{ matrix.rust_target }}
 
       # ============================================
       # Upload Artifacts
@@ -293,8 +301,7 @@ jobs:
           name: alproj-gui-${{ matrix.target }}
           path: |
             src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg/*.dmg
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos/*.app
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -302,9 +309,9 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/appimage/*.AppImage
-          if-no-files-found: warn
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
 
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
@@ -312,9 +319,9 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: warn
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.exe
+          if-no-files-found: error
 
   # ============================================
   # Create GitHub Release
@@ -322,23 +329,35 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     permissions:
       contents: write
 
     steps:
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
       - name: List artifacts
-        run: find artifacts -type f | head -50
+        run: find artifacts -type f | head -200
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           draft: true
           generate_release_notes: true
           files: |
