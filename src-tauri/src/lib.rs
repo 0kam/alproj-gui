@@ -3,6 +3,7 @@
 
 use log::{error, info, warn};
 use std::fs::{self, OpenOptions};
+use std::io::{Read, Seek, SeekFrom};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -117,6 +118,12 @@ impl Default for AppState {
             backend_log_path: Mutex::new(None),
         }
     }
+}
+
+#[derive(serde::Serialize)]
+struct BackendLogChunk {
+    next_offset: usize,
+    text: String,
 }
 
 fn resolve_backend_log_path(app: &tauri::AppHandle) -> PathBuf {
@@ -323,6 +330,20 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<
         let uv_path = find_uv_path().ok_or("Could not find uv. Please ensure uv is installed.")?;
         info!("Using uv at: {:?}", uv_path);
 
+        let log_path = resolve_backend_log_path(app);
+        if let Some(parent) = log_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create backend log dir {:?}: {}", parent, e))?;
+        }
+        let stdout_log = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .map_err(|e| format!("Failed to open backend log file {:?}: {}", log_path, e))?;
+        let stderr_log = stdout_log
+            .try_clone()
+            .map_err(|e| format!("Failed to clone backend log file handle: {}", e))?;
+
         let child = Command::new(&uv_path)
             .args([
                 "run",
@@ -334,14 +355,15 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<
                 &BACKEND_PORT.to_string(),
             ])
             .current_dir(&backend_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::from(stdout_log))
+            .stderr(Stdio::from(stderr_log))
             .spawn()
             .map_err(|e| format!("Failed to spawn uv process: {}", e))?;
 
         info!("Backend process started with PID: {:?}", child.id());
+        info!("Backend log path: {:?}", log_path);
 
-        Ok((ProcessHandle::StdChild(child), None))
+        Ok((ProcessHandle::StdChild(child), Some(log_path)))
     } else {
         // Production mode: use bundled sidecar from resources
         // The sidecar is built with PyInstaller --onedir and needs _internal next to it
@@ -547,6 +569,8 @@ pub fn run() {
             greet,
             get_backend_status,
             check_backend_health,
+            get_backend_log_cursor,
+            read_backend_log_chunk,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -594,6 +618,65 @@ async fn check_backend_health() -> Result<serde_json::Value, String> {
         .json::<serde_json::Value>()
         .await
         .map_err(|e| format!("Failed to parse health check response: {}", e))
+}
+
+#[tauri::command]
+async fn get_backend_log_cursor(state: tauri::State<'_, Arc<AppState>>) -> Result<usize, String> {
+    let log_path = state.backend_log_path.lock().await.clone();
+    let Some(path) = log_path else {
+        return Ok(0);
+    };
+
+    let meta = fs::metadata(&path)
+        .map_err(|e| format!("Failed to read backend log metadata {:?}: {}", path, e))?;
+    Ok(meta.len() as usize)
+}
+
+#[tauri::command]
+async fn read_backend_log_chunk(
+    state: tauri::State<'_, Arc<AppState>>,
+    offset: usize,
+    max_bytes: Option<usize>,
+) -> Result<BackendLogChunk, String> {
+    let log_path = state.backend_log_path.lock().await.clone();
+    let Some(path) = log_path else {
+        return Ok(BackendLogChunk {
+            next_offset: offset,
+            text: String::new(),
+        });
+    };
+
+    let mut file = fs::File::open(&path)
+        .map_err(|e| format!("Failed to open backend log {:?}: {}", path, e))?;
+    let file_len = file
+        .metadata()
+        .map_err(|e| format!("Failed to read backend log metadata {:?}: {}", path, e))?
+        .len() as usize;
+
+    let normalized_offset = offset.min(file_len);
+    file.seek(SeekFrom::Start(normalized_offset as u64))
+        .map_err(|e| format!("Failed to seek backend log {:?}: {}", path, e))?;
+
+    let limit = max_bytes.unwrap_or(64 * 1024).clamp(1024, 1024 * 1024);
+    let to_read = (file_len - normalized_offset).min(limit);
+    if to_read == 0 {
+        return Ok(BackendLogChunk {
+            next_offset: normalized_offset,
+            text: String::new(),
+        });
+    }
+
+    let mut buffer = vec![0u8; to_read];
+    let read = file
+        .read(&mut buffer)
+        .map_err(|e| format!("Failed to read backend log {:?}: {}", path, e))?;
+    buffer.truncate(read);
+    let text = String::from_utf8_lossy(&buffer).to_string();
+
+    Ok(BackendLogChunk {
+        next_offset: normalized_offset + read,
+        text,
+    })
 }
 
 #[cfg(test)]

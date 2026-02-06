@@ -7,6 +7,7 @@
   - Allow re-run if result is not good
 -->
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18n';
 	import { Button, Card } from '$lib/components/common';
@@ -15,9 +16,20 @@
 	import { wizardStore } from '$lib/stores';
 	import type { MatchRequest, MatchResponse, MatchingMethod, MatchingParams } from '$lib/types';
 
+	type BackendLogChunk = {
+		next_offset: number;
+		text: string;
+	};
+
+	type IntervalId = ReturnType<typeof globalThis.setInterval>;
+
 	let isRunning = false;
 	let hasError = false;
 	let errorMessage = '';
+	let modelDownloadProgress = 0;
+	let modelLogPollTimer: IntervalId | null = null;
+	let modelLogPollInFlight = false;
+	let backendLogOffset = 0;
 
 	// Default values
 	const defaultMatchingMethod: MatchingMethod = 'superpoint-lightglue';
@@ -90,6 +102,114 @@
 		errorMessage = '';
 	}
 
+	function isTauri(): boolean {
+		const runtime = globalThis as typeof globalThis & {
+			__TAURI__?: unknown;
+			__TAURI_INTERNALS__?: unknown;
+		};
+		return (
+			typeof runtime !== 'undefined' &&
+			('__TAURI__' in runtime || '__TAURI_INTERNALS__' in runtime)
+		);
+	}
+
+	function appendMatchLogs(lines: string[]): void {
+		if (lines.length === 0) return;
+		matchLog = [...matchLog, ...lines].slice(-500);
+	}
+
+	function parseLogLines(rawText: string): string[] {
+		if (!rawText) return [];
+		return rawText
+			.split(/\r\n|\n|\r/g)
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0);
+	}
+
+	function extractPercentFromLines(lines: string[]): number | null {
+		let latest: number | null = null;
+		for (const line of lines) {
+			const matches = [...line.matchAll(/(\d{1,3})%/g)];
+			if (matches.length === 0) continue;
+			const raw = matches[matches.length - 1]?.[1];
+			if (!raw) continue;
+			const value = Number(raw);
+			if (Number.isNaN(value) || value < 0 || value > 100) continue;
+			latest = value;
+		}
+		return latest;
+	}
+
+	async function getBackendLogCursor(): Promise<number> {
+		if (!isTauri()) return 0;
+		const { invoke } = await import('@tauri-apps/api/core');
+		return await invoke<number>('get_backend_log_cursor');
+	}
+
+	async function readBackendLogChunk(offset: number): Promise<BackendLogChunk> {
+		if (!isTauri()) {
+			return { next_offset: offset, text: '' };
+		}
+		const { invoke } = await import('@tauri-apps/api/core');
+		return await invoke<BackendLogChunk>('read_backend_log_chunk', {
+			offset,
+			maxBytes: 128 * 1024
+		});
+	}
+
+	async function pollModelDownloadLogOnce(): Promise<void> {
+		if (!isRunning || modelLogPollInFlight) return;
+
+		modelLogPollInFlight = true;
+		try {
+			const chunk = await readBackendLogChunk(backendLogOffset);
+			backendLogOffset = chunk.next_offset;
+			const lines = parseLogLines(chunk.text);
+			if (lines.length === 0) return;
+
+			appendMatchLogs(lines);
+			const percent = extractPercentFromLines(lines);
+			if (percent !== null) {
+				modelDownloadProgress = Math.max(modelDownloadProgress, percent);
+			}
+		} catch (error) {
+			void error;
+		} finally {
+			modelLogPollInFlight = false;
+		}
+	}
+
+	async function startModelDownloadProgress(): Promise<void> {
+		stopModelDownloadProgress();
+		modelDownloadProgress = 0;
+		backendLogOffset = 0;
+
+		try {
+			backendLogOffset = await getBackendLogCursor();
+		} catch (error) {
+			void error;
+		}
+
+		if (!isTauri()) return;
+
+		modelLogPollTimer = globalThis.setInterval(() => {
+			void pollModelDownloadLogOnce();
+		}, 1000);
+
+		await pollModelDownloadLogOnce();
+	}
+
+	function stopModelDownloadProgress() {
+		if (modelLogPollTimer) {
+			globalThis.clearInterval(modelLogPollTimer);
+			modelLogPollTimer = null;
+		}
+	}
+
+	onDestroy(() => {
+		stopModelDownloadProgress();
+	});
+
 	async function runMatching() {
 		resetState();
 
@@ -103,6 +223,7 @@
 		matchLog = [];
 		matchPlot = null;
 		matchCount = null;
+		await startModelDownloadProgress();
 
 		// Invalidate subsequent steps (Step 4 onwards) when re-running matching
 		wizardStore.invalidateFromStep(3);
@@ -144,7 +265,7 @@
 			});
 
 			matchPlot = `data:image/png;base64,${response.match_plot_base64}`;
-			matchLog = response.log ?? [];
+			appendMatchLogs(response.log ?? []);
 			matchCount = response.match_count ?? null;
 			const matchId = response.match_id ?? null;
 
@@ -172,6 +293,9 @@
 			hasError = true;
 			errorMessage = err instanceof Error ? err.message : t('matching.failed');
 		} finally {
+			await pollModelDownloadLogOnce();
+			modelDownloadProgress = 100;
+			stopModelDownloadProgress();
 			isRunning = false;
 		}
 	}
@@ -234,9 +358,12 @@
 					<p class="mt-1 text-xs text-gray-500">{t('matching.spatialThinGridHelp')}</p>
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">{t('matching.resize')}</label>
+					<label for="matching-resize-enabled" class="block text-sm font-medium text-gray-700 mb-1"
+						>{t('matching.resize')}</label
+					>
 					<div class="flex items-center gap-2">
 						<input
+							id="matching-resize-enabled"
 							type="checkbox"
 							bind:checked={resizeEnabled}
 							class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
@@ -282,8 +409,17 @@
 	</Card>
 
 	{#if isRunning}
-		<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-			{t('matching.modelDownloadNotice')}
+		<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
+			<div class="flex items-center justify-between">
+				<span>{t('matching.modelDownloadNotice')}</span>
+				<span>{Math.max(1, Math.round(modelDownloadProgress))}%</span>
+			</div>
+			<div class="h-2 w-full overflow-hidden rounded bg-blue-100">
+				<div
+					class="h-full bg-blue-500 transition-[width] duration-500 ease-out"
+					style={`width: ${Math.max(2, modelDownloadProgress)}%`}
+				></div>
+			</div>
 		</div>
 	{/if}
 
