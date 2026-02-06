@@ -27,6 +27,7 @@
 	let hasError = false;
 	let errorMessage = '';
 	let modelDownloadProgress = 0;
+	let hasModelDownloadPercent = false;
 	let modelLogPollTimer: IntervalId | null = null;
 	let modelLogPollInFlight = false;
 	let backendLogOffset = 0;
@@ -170,6 +171,7 @@
 			appendMatchLogs(lines);
 			const percent = extractPercentFromLines(lines);
 			if (percent !== null) {
+				hasModelDownloadPercent = true;
 				modelDownloadProgress = Math.max(modelDownloadProgress, percent);
 			}
 		} catch (error) {
@@ -182,6 +184,7 @@
 	async function startModelDownloadProgress(): Promise<void> {
 		stopModelDownloadProgress();
 		modelDownloadProgress = 0;
+		hasModelDownloadPercent = false;
 		backendLogOffset = 0;
 
 		try {
@@ -412,13 +415,23 @@
 		<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
 			<div class="flex items-center justify-between">
 				<span>{t('matching.modelDownloadNotice')}</span>
-				<span>{Math.max(1, Math.round(modelDownloadProgress))}%</span>
+				<span>
+					{#if hasModelDownloadPercent}
+						{Math.max(1, Math.round(modelDownloadProgress))}%
+					{:else}
+						{t('matching.modelDownloadPreparing')}
+					{/if}
+				</span>
 			</div>
 			<div class="h-2 w-full overflow-hidden rounded bg-blue-100">
-				<div
-					class="h-full bg-blue-500 transition-[width] duration-500 ease-out"
-					style={`width: ${Math.max(2, modelDownloadProgress)}%`}
-				></div>
+				{#if hasModelDownloadPercent}
+					<div
+						class="h-full bg-blue-500 transition-[width] duration-500 ease-out"
+						style={`width: ${Math.max(2, modelDownloadProgress)}%`}
+					></div>
+				{:else}
+					<div class="h-full model-download-indeterminate"></div>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -467,3 +480,20 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	@keyframes model-download-indeterminate-slide {
+		0% {
+			transform: translateX(-120%);
+		}
+		100% {
+			transform: translateX(320%);
+		}
+	}
+
+	.model-download-indeterminate {
+		width: 28%;
+		background: linear-gradient(90deg, #60a5fa 0%, #2563eb 55%, #60a5fa 100%);
+		animation: model-download-indeterminate-slide 1s ease-in-out infinite;
+	}
+</style>

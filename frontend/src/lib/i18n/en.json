@@ -128,6 +128,7 @@
     "run": "Run Matching",
     "running": "Matching...",
     "modelDownloadNotice": "Downloading matching model (only on first run)",
+    "modelDownloadPreparing": "Preparing...",
     "error": "Matching Error",
     "failed": "Matching failed",
     "result": "Matching Result",
