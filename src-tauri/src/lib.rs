@@ -479,6 +479,26 @@ async fn wait_for_backend(state: &Arc<AppState>) -> Result<(), String> {
     Err(error_message)
 }
 
+async fn is_existing_backend_healthy() -> bool {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => return false,
+    };
+
+    for url in [HEALTH_CHECK_URL, HEALTH_CHECK_URL_LOCALHOST] {
+        if let Ok(response) = client.get(url).send().await {
+            if response.status().is_success() {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 /// Stop the sidecar process gracefully
 async fn stop_sidecar(state: &AppState) {
     let mut sidecar = state.sidecar.lock().await;
@@ -518,6 +538,15 @@ pub fn run() {
             let state = app.state::<Arc<AppState>>().inner().clone();
 
             tauri::async_runtime::spawn(async move {
+                if is_existing_backend_healthy().await {
+                    warn!("Existing backend detected on port 8765; reusing it");
+                    *state.backend_ready.lock().await = true;
+                    if let Err(e) = app_handle.emit("backend-ready", true) {
+                        error!("Failed to emit backend-ready event: {}", e);
+                    }
+                    return;
+                }
+
                 match start_sidecar(&app_handle).await {
                     Ok((child, log_path)) => {
                         // Store the child process handle
@@ -536,19 +565,39 @@ pub fn run() {
                                 }
                             }
                             Err(e) => {
-                                error!("Backend failed to start: {}", e);
-                                // Emit error event to frontend
-                                if let Err(e) = app_handle.emit("backend-error", e.clone()) {
-                                    error!("Failed to emit backend-error event: {}", e);
+                                if is_existing_backend_healthy().await {
+                                    warn!(
+                                        "Sidecar failed to start but existing backend is healthy; reusing existing backend"
+                                    );
+                                    *state.backend_ready.lock().await = true;
+                                    if let Err(e) = app_handle.emit("backend-ready", true) {
+                                        error!("Failed to emit backend-ready event: {}", e);
+                                    }
+                                } else {
+                                    error!("Backend failed to start: {}", e);
+                                    // Emit error event to frontend
+                                    if let Err(e) = app_handle.emit("backend-error", e.clone()) {
+                                        error!("Failed to emit backend-error event: {}", e);
+                                    }
                                 }
                             }
                         }
                     }
                     Err(e) => {
-                        error!("Failed to start sidecar: {}", e);
-                        // Emit error event to frontend
-                        if let Err(emit_err) = app_handle.emit("backend-error", e.clone()) {
-                            error!("Failed to emit backend-error event: {}", emit_err);
+                        if is_existing_backend_healthy().await {
+                            warn!(
+                                "Failed to spawn sidecar but existing backend is healthy; reusing existing backend"
+                            );
+                            *state.backend_ready.lock().await = true;
+                            if let Err(e) = app_handle.emit("backend-ready", true) {
+                                error!("Failed to emit backend-ready event: {}", e);
+                            }
+                        } else {
+                            error!("Failed to start sidecar: {}", e);
+                            // Emit error event to frontend
+                            if let Err(emit_err) = app_handle.emit("backend-error", e.clone()) {
+                                error!("Failed to emit backend-error event: {}", emit_err);
+                            }
                         }
                     }
                 }
