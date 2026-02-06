@@ -25,14 +25,17 @@ jobs:
             target: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
             tauri_args: --target aarch64-apple-darwin
+            pyinstaller_mode: onedir
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
             tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
+            pyinstaller_mode: onefile
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
             tauri_args: --target x86_64-pc-windows-msvc
+            pyinstaller_mode: onedir
 
     runs-on: ${{ matrix.platform }}
 
@@ -100,7 +103,7 @@ jobs:
           RASTERIO_GDAL_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))")
 
           uv run pyinstaller \
-            --onedir \
+            --${{ matrix.pyinstaller_mode }} \
             --name "backend-sidecar" \
             --clean \
             --noconfirm \
@@ -211,13 +214,22 @@ jobs:
             --add-data "app;app" `
             app/main.py
 
-      - name: Copy sidecar to Tauri binaries (Unix)
-        if: matrix.platform != 'windows-latest'
+      - name: Copy sidecar to Tauri binaries (macOS onedir)
+        if: startsWith(matrix.platform, 'macos')
         run: |
           rm -rf src-tauri/binaries/sidecar-${{ matrix.target }}
           mkdir -p src-tauri/binaries
           mv backend/dist/backend-sidecar src-tauri/binaries/sidecar-${{ matrix.target }}
           mv src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar \
+            src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
+          chmod +x src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
+
+      - name: Copy sidecar to Tauri binaries (Linux onefile)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          rm -rf src-tauri/binaries/sidecar-${{ matrix.target }}
+          mkdir -p src-tauri/binaries/sidecar-${{ matrix.target }}
+          mv backend/dist/backend-sidecar \
             src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
           chmod +x src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
 
