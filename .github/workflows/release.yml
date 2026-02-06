@@ -314,12 +314,13 @@ jobs:
         shell: pwsh
         run: |
           $sidecar = Join-Path $PWD "dist/backend-sidecar/backend-sidecar.exe"
-          $logPath = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.log"
+          $stdoutLog = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.stdout.log"
+          $stderrLog = Join-Path $env:RUNNER_TEMP "backend-sidecar-smoke.stderr.log"
           $proc = Start-Process `
             -FilePath $sidecar `
             -ArgumentList "--host","127.0.0.1","--port","18765" `
-            -RedirectStandardOutput $logPath `
-            -RedirectStandardError $logPath `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
             -PassThru
 
           try {
@@ -344,8 +345,13 @@ jobs:
               if ($proc.HasExited) {
                 Write-Host "Backend sidecar exited early with code: $($proc.ExitCode)"
               }
-              if (Test-Path $logPath) {
-                Get-Content $logPath -Tail 200
+              if (Test-Path $stdoutLog) {
+                Write-Host "--- stdout tail ---"
+                Get-Content $stdoutLog -Tail 120
+              }
+              if (Test-Path $stderrLog) {
+                Write-Host "--- stderr tail ---"
+                Get-Content $stderrLog -Tail 120
               }
               throw "Backend sidecar smoke test failed (Windows)"
             }
