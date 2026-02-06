@@ -197,8 +197,9 @@ jobs:
       - name: Copy sidecar to Tauri binaries (Unix)
         if: matrix.platform != 'windows-latest'
         run: |
-          mkdir -p src-tauri/binaries/sidecar-${{ matrix.target }}
-          cp -R backend/dist/backend-sidecar/* src-tauri/binaries/sidecar-${{ matrix.target }}/
+          rm -rf src-tauri/binaries/sidecar-${{ matrix.target }}
+          mkdir -p src-tauri/binaries
+          mv backend/dist/backend-sidecar src-tauri/binaries/sidecar-${{ matrix.target }}
           mv src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar \
             src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
           chmod +x src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar-${{ matrix.target }}
@@ -207,8 +208,9 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path src-tauri/binaries/sidecar-${{ matrix.target }}
-          Copy-Item -Recurse -Force backend/dist/backend-sidecar/* src-tauri/binaries/sidecar-${{ matrix.target }}/
+          Remove-Item -Recurse -Force src-tauri/binaries/sidecar-${{ matrix.target }} -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
+          Move-Item -Force backend/dist/backend-sidecar src-tauri/binaries/sidecar-${{ matrix.target }}
           Rename-Item `
             -Path src-tauri/binaries/sidecar-${{ matrix.target }}/backend-sidecar.exe `
             -NewName backend-sidecar-${{ matrix.target }}.exe
