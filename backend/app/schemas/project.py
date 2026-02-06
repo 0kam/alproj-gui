@@ -1,5 +1,7 @@
 """Pydantic schemas for Project-related models."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
