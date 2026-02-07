@@ -106,7 +106,7 @@ jobs:
             torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0
 
           # Remove CUDA-related packages that may have been installed by uv sync.
-          CUDA_PKGS=$(uv run python - <<'PY'
+          CUDA_PKGS=$(.venv/bin/python - <<'PY'
           import importlib.metadata as md
 
           names = []
@@ -124,7 +124,7 @@ jobs:
           fi
 
           # Sanity-check Linux torch build metadata.
-          uv run python - <<'PY'
+          .venv/bin/python - <<'PY'
           import importlib.metadata as md
           import torch
 
@@ -144,11 +144,11 @@ jobs:
         if: matrix.platform != 'windows-latest'
         working-directory: backend
         run: |
-          RASTERIO_PROJ_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))")
-          RASTERIO_GDAL_DATA=$(uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))")
-          PYPROJ_DATA=$(uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())")
+          RASTERIO_PROJ_DATA=$(.venv/bin/python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))")
+          RASTERIO_GDAL_DATA=$(.venv/bin/python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))")
+          PYPROJ_DATA=$(.venv/bin/python -c "import pyproj; print(pyproj.datadir.get_data_dir())")
 
-          uv run pyinstaller \
+          .venv/bin/pyinstaller \
             --${{ matrix.pyinstaller_mode }} \
             --name "backend-sidecar" \
             --clean \
@@ -226,7 +226,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          if ! uv run python - <<'PY'
+          if ! .venv/bin/python - <<'PY'
           import json
           import time
           import urllib.request
@@ -257,11 +257,14 @@ jobs:
         working-directory: backend
         shell: pwsh
         run: |
-          $RASTERIO_PROJ_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))"
-          $RASTERIO_GDAL_DATA = uv run python -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))"
-          $PYPROJ_DATA = uv run python -c "import pyproj; print(pyproj.datadir.get_data_dir())"
+          $PYTHON = Join-Path $PWD ".venv/Scripts/python.exe"
+          $PYINSTALLER = Join-Path $PWD ".venv/Scripts/pyinstaller.exe"
 
-          uv run pyinstaller `
+          $RASTERIO_PROJ_DATA = & $PYTHON -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'proj_data'))"
+          $RASTERIO_GDAL_DATA = & $PYTHON -c "import rasterio, os; print(os.path.join(os.path.dirname(rasterio.__file__), 'gdal_data'))"
+          $PYPROJ_DATA = & $PYTHON -c "import pyproj; print(pyproj.datadir.get_data_dir())"
+
+          & $PYINSTALLER `
             --onedir `
             --name "backend-sidecar" `
             --clean `
