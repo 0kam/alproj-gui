@@ -89,18 +89,13 @@ Download the latest release from the [Releases](../../releases) page.
 
 ### Linux
 
-1. Download the package for your distribution:
-   - **Debian/Ubuntu**: `alproj-gui_x.x.x_amd64.deb`
-   - **Other distros**: `alproj-gui_x.x.x_amd64.AppImage`
+1. Download `ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz`
 
-2. Install:
+2. Extract and install:
    ```bash
-   # Debian/Ubuntu
-   sudo dpkg -i alproj-gui_x.x.x_amd64.deb
-
-   # AppImage
-   chmod +x alproj-gui_x.x.x_amd64.AppImage
-   ./alproj-gui_x.x.x_amd64.AppImage
+   tar -xzf ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz
+   cd alproj-gui-linux-x86_64
+   ./install.sh
    ```
 
 ---

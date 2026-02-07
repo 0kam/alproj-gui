@@ -73,9 +73,7 @@ jobs:
             patchelf \
             libfuse2 \
             libglib2.0-dev \
-            libgdal-dev \
-            flatpak \
-            flatpak-builder
+            libgdal-dev
 
       # ============================================
       # Python Setup (for backend sidecar)
@@ -453,8 +451,8 @@ jobs:
       - name: Configure Linux build directories
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          sudo mkdir -p /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo /mnt/flatpak-state
-          sudo chown -R "$USER":"$USER" /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo /mnt/flatpak-state
+          sudo mkdir -p /mnt/alproj-target /mnt/tmp
+          sudo chown -R "$USER":"$USER" /mnt/alproj-target /mnt/tmp
           rm -rf src-tauri/target
           ln -s /mnt/alproj-target src-tauri/target
           echo "CARGO_TARGET_DIR=/mnt/alproj-target" >> "$GITHUB_ENV"
@@ -474,47 +472,44 @@ jobs:
           projectPath: src-tauri
           args: ${{ matrix.tauri_args }}
 
-      - name: Build Flatpak bundle (Linux)
+      - name: Build Linux tarball package
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           set -euo pipefail
 
-          APP_BIN="src-tauri/target/${{ matrix.rust_target }}/release/alproj-gui"
-          if [ ! -x "$APP_BIN" ]; then
-            echo "Missing Linux app binary: $APP_BIN"
-            ls -la "src-tauri/target/${{ matrix.rust_target }}/release" || true
-            exit 1
-          fi
-
-          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-          NO_DEBUG_ARGS=()
-          if flatpak-builder --help | grep -q -- '--no-debuginfo'; then
-            NO_DEBUG_ARGS+=(--no-debuginfo)
-          fi
-
-          # Avoid ostree export failure caused only by minimum free-space threshold.
-          export OSTREE_MIN_FREE_SPACE_PERCENT=0
-
-          flatpak-builder \
-            --user \
-            "${NO_DEBUG_ARGS[@]}" \
-            --install-deps-from=flathub \
-            --force-clean \
-            --state-dir=/mnt/flatpak-state \
-            --repo=/mnt/flatpak-repo \
-            /mnt/flatpak-build \
-            packaging/flatpak/com.alproj.gui.yml
-
           VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-          mkdir -p dist-flatpak
-          flatpak build-bundle \
-            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
-            /mnt/flatpak-repo \
-            "dist-flatpak/ALPROJ.GUI_${VERSION}_x86_64.flatpak" \
-            com.alproj.gui \
-            stable
-          ls -lh dist-flatpak
+          PKG_ROOT="dist-linux/alproj-gui-linux-x86_64"
+          PAYLOAD_DIR="$PKG_ROOT/payload"
+
+          rm -rf dist-linux
+          mkdir -p \
+            "$PAYLOAD_DIR/binaries" \
+            "$PAYLOAD_DIR/share/applications" \
+            "$PAYLOAD_DIR/share/icons/hicolor/128x128/apps"
+
+          install -Dm755 \
+            "src-tauri/target/${{ matrix.rust_target }}/release/alproj-gui" \
+            "$PAYLOAD_DIR/alproj-gui"
+          cp -a \
+            "src-tauri/binaries/sidecar-${{ matrix.target }}" \
+            "$PAYLOAD_DIR/binaries/"
+          install -Dm644 \
+            "packaging/flatpak/com.alproj.gui.desktop" \
+            "$PAYLOAD_DIR/share/applications/com.alproj.gui.desktop"
+          install -Dm644 \
+            "src-tauri/icons/128x128.png" \
+            "$PAYLOAD_DIR/share/icons/hicolor/128x128/apps/com.alproj.gui.png"
+
+          install -Dm755 "packaging/linux/install.sh" "$PKG_ROOT/install.sh"
+          install -Dm755 "packaging/linux/uninstall.sh" "$PKG_ROOT/uninstall.sh"
+          install -Dm755 "packaging/linux/update.sh" "$PKG_ROOT/update.sh"
+          install -Dm644 "packaging/linux/README-linux.md" "$PKG_ROOT/README-linux.md"
+          printf '%s\n' "$VERSION" > "$PKG_ROOT/VERSION"
+
+          tar -C dist-linux -czf \
+            "dist-linux/ALPROJ.GUI_${VERSION}_linux_x86_64.tar.gz" \
+            "alproj-gui-linux-x86_64"
+          ls -lh dist-linux/*.tar.gz
 
       # ============================================
       # Upload Artifacts
@@ -534,7 +529,7 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            dist-flatpak/*.flatpak
+            dist-linux/*.tar.gz
           if-no-files-found: error
 
       - name: Upload artifacts (Windows)
@@ -581,34 +576,40 @@ jobs:
           set -euo pipefail
           deb_count=$(find artifacts -type f -name "*.deb" | wc -l | tr -d ' ')
           if [ "$deb_count" -gt 0 ]; then
-            echo "Unexpected .deb artifact detected. Linux release must be Flatpak-only."
+            echo "Unexpected .deb artifact detected. Linux release must be tar.gz-only."
             find artifacts -type f -name "*.deb"
             exit 1
           fi
           appimage_count=$(find artifacts -type f -name "*.AppImage" | wc -l | tr -d ' ')
           if [ "$appimage_count" -gt 0 ]; then
-            echo "Unexpected .AppImage artifact detected. Linux release must be Flatpak-only."
+            echo "Unexpected .AppImage artifact detected. Linux release must be tar.gz-only."
             find artifacts -type f -name "*.AppImage"
             exit 1
           fi
+          flatpak_count=$(find artifacts -type f -name "*.flatpak" | wc -l | tr -d ' ')
+          if [ "$flatpak_count" -gt 0 ]; then
+            echo "Unexpected .flatpak artifact detected. Linux release must be tar.gz-only."
+            find artifacts -type f -name "*.flatpak"
+            exit 1
+          fi
 
-      - name: Validate Linux Flatpak size (<1GB)
+      - name: Validate Linux tarball size (<1GB)
         run: |
           set -euo pipefail
           limit=1000000000
-          flatpak_count=0
+          tar_count=0
           while IFS= read -r -d '' file; do
-            flatpak_count=$((flatpak_count + 1))
+            tar_count=$((tar_count + 1))
             size=$(stat -c%s "$file")
             if [ "$size" -ge "$limit" ]; then
               echo "Asset exceeds 1GB limit: $file (${size} bytes)"
               exit 1
             fi
             echo "OK: $file (${size} bytes)"
-          done < <(find artifacts -type f -name "*.flatpak" -print0)
+          done < <(find artifacts -type f -name "*.tar.gz" -print0)
 
-          if [ "$flatpak_count" -eq 0 ]; then
-            echo "No .flatpak artifact found"
+          if [ "$tar_count" -eq 0 ]; then
+            echo "No Linux .tar.gz artifact found"
             exit 1
           fi
 
@@ -622,7 +623,7 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
-            artifacts/**/*.flatpak
+            artifacts/**/*.tar.gz
             artifacts/**/*.msi
             artifacts/**/*.exe
         env:
