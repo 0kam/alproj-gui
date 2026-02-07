@@ -29,7 +29,7 @@ jobs:
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
-            tauri_args: --target x86_64-unknown-linux-gnu
+            tauri_args: --target x86_64-unknown-linux-gnu --bundles none
             pyinstaller_mode: onedir
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
@@ -479,9 +479,17 @@ jobs:
 
           flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
+          NO_DEBUG_ARGS=()
+          if flatpak-builder --help | grep -q -- '--no-debuginfo'; then
+            NO_DEBUG_ARGS+=(--no-debuginfo)
+          fi
+
+          # Avoid ostree export failure caused only by minimum free-space threshold.
+          export OSTREE_MIN_FREE_SPACE_PERCENT=0
+
           flatpak-builder \
             --user \
-            --no-debuginfo \
+            "${NO_DEBUG_ARGS[@]}" \
             --install-deps-from=flathub \
             --force-clean \
             --repo=/mnt/flatpak-repo \

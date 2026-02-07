@@ -12,6 +12,8 @@ finish-args:
   - --filesystem=home
 modules:
   - name: alproj-gui
+    build-options:
+      no-debuginfo: true
     buildsystem: simple
     build-commands:
       - install -Dm755 alproj-gui /app/bin/alproj-gui

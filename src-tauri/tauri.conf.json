@@ -61,11 +61,6 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": null,
       "wix": null
-    },
-    "linux": {
-      "appimage": {
-        "bundleMediaFramework": true
-      }
     }
   },
   "plugins": {
