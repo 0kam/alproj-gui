@@ -444,8 +444,8 @@ jobs:
       - name: Configure Linux build directories
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          sudo mkdir -p /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo
-          sudo chown -R "$USER":"$USER" /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo
+          sudo mkdir -p /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo /mnt/flatpak-state
+          sudo chown -R "$USER":"$USER" /mnt/alproj-target /mnt/tmp /mnt/flatpak-build /mnt/flatpak-repo /mnt/flatpak-state
           rm -rf src-tauri/target
           ln -s /mnt/alproj-target src-tauri/target
           echo "CARGO_TARGET_DIR=/mnt/alproj-target" >> "$GITHUB_ENV"
@@ -492,6 +492,7 @@ jobs:
             "${NO_DEBUG_ARGS[@]}" \
             --install-deps-from=flathub \
             --force-clean \
+            --state-dir=/mnt/flatpak-state \
             --repo=/mnt/flatpak-repo \
             /mnt/flatpak-build \
             packaging/flatpak/com.alproj.gui.yml
