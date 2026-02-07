@@ -204,6 +204,9 @@ jobs:
             --add-data "app:app" \
             app/main.py
 
+          # Model weights are downloaded on demand at runtime; do not bundle them.
+          rm -rf dist/backend-sidecar/_internal/imm/model_weights
+
       - name: Smoke test backend sidecar (Unix)
         if: matrix.platform != 'windows-latest'
         continue-on-error: true
@@ -313,6 +316,12 @@ jobs:
             --hidden-import "huggingface_hub" `
             --add-data "app;app" `
             app/main.py
+
+          # Model weights are downloaded on demand at runtime; do not bundle them.
+          $weightsDir = Join-Path $PWD "dist/backend-sidecar/_internal/imm/model_weights"
+          if (Test-Path $weightsDir) {
+            Remove-Item -Recurse -Force $weightsDir
+          }
 
       - name: Smoke test backend sidecar (Windows)
         if: matrix.platform == 'windows-latest'
