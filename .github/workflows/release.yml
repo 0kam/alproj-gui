@@ -74,6 +74,7 @@ jobs:
             libfuse2 \
             libglib2.0-dev \
             libgdal-dev \
+            appstream-compose \
             flatpak \
             flatpak-builder
 
