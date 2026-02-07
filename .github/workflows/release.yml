@@ -26,6 +26,11 @@ jobs:
             rust_target: aarch64-apple-darwin
             tauri_args: --target aarch64-apple-darwin
             pyinstaller_mode: onedir
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rust_target: x86_64-unknown-linux-gnu
+            tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
+            pyinstaller_mode: onedir
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
@@ -477,7 +482,7 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
           if-no-files-found: error
 
       - name: Upload artifacts (Windows)
@@ -519,34 +524,28 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f | head -200
 
-      - name: Split oversized Linux assets
+      - name: Validate Linux bundle type
         run: |
           set -euo pipefail
-          split_happened=0
-          split_files=()
-          while IFS= read -r -d '' file; do
-            size=$(stat -c%s "$file")
-            if [ "$size" -gt 2000000000 ]; then
-              echo "Splitting oversized asset: $file (${size} bytes)"
-              base_name=$(basename "$file")
-              split -b 1900m -d -a 3 "$file" "${file}.part-"
-              rm -f "$file"
-              split_happened=1
-              split_files+=("$base_name")
-            fi
-          done < <(find artifacts -type f \( -name "*.deb" -o -name "*.AppImage" \) -print0)
-
-          if [ "$split_happened" -eq 1 ]; then
-            cat > artifacts/LINUX_ASSET_REASSEMBLY.txt <<'EOF'
-          Linux installer was split because GitHub Release assets are limited to 2GB each.
-          Reassemble with:
-          EOF
-            for base_name in "${split_files[@]}"; do
-              echo "cat \"${base_name}.part-\"* > \"${base_name}\"" >> artifacts/LINUX_ASSET_REASSEMBLY.txt
-            done
+          deb_count=$(find artifacts -type f -name "*.deb" | wc -l | tr -d ' ')
+          if [ "$deb_count" -gt 0 ]; then
+            echo "Unexpected .deb artifact detected. Linux release must be AppImage-only."
+            find artifacts -type f -name "*.deb"
+            exit 1
           fi
 
-          find artifacts -type f | head -300
+      - name: Validate Linux AppImage size (<1GB)
+        run: |
+          set -euo pipefail
+          limit=1000000000
+          while IFS= read -r -d '' file; do
+            size=$(stat -c%s "$file")
+            if [ "$size" -ge "$limit" ]; then
+              echo "Asset exceeds 1GB limit: $file (${size} bytes)"
+              exit 1
+            fi
+            echo "OK: $file (${size} bytes)"
+          done < <(find artifacts -type f -name "*.AppImage" -print0)
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -558,12 +557,8 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
-            artifacts/**/*.deb
-            artifacts/**/*.deb.part-*
             artifacts/**/*.AppImage
-            artifacts/**/*.AppImage.part-*
             artifacts/**/*.msi
             artifacts/**/*.exe
-            artifacts/**/LINUX_ASSET_REASSEMBLY.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
