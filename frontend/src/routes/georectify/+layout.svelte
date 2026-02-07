@@ -10,13 +10,15 @@
 	import { page } from '$app/stores';
 	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/common';
+	import { showConfirm } from '$lib/services/file-dialog';
 	import {
-		wizardStore,
+		hasUnsavedChanges,
 		steps,
 		currentStep,
-		progressPercent
-	} from '$lib/stores/wizard';
-	import { projectStore } from '$lib/stores';
+		progressPercent,
+		projectStore,
+		wizardStore
+	} from '$lib/stores';
 
 	// Navigate to step path
 	function navigateToStep(index: number) {
@@ -31,9 +33,16 @@
 	}
 
 	// Handle cancel / return to home
-	function handleCancel() {
+	async function handleCancel() {
+		if ($hasUnsavedChanges) {
+			const confirmed = await showConfirm(
+				t('common.confirm'),
+				t('project.confirmDiscardToHome')
+			);
+			if (!confirmed) return;
+		}
 		projectStore.closeProject();
-		goto('/');
+		await goto('/');
 	}
 
 	// Reactive step statuses - computed whenever stores change

@@ -1,6 +1,6 @@
 [project]
 name = "alproj-gui-backend"
-version = "0.1.0"
+version = "0.1.1"
 description = "Backend server for alproj GUI application"
 readme = "README.md"
 requires-python = ">=3.11"

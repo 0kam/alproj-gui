@@ -176,6 +176,41 @@ export async function openImageDialog(): Promise<string | null> {
 }
 
 /**
+ * Open a file dialog to select multiple image files
+ * @returns Selected file paths (empty when cancelled)
+ */
+export async function openImageDialogs(): Promise<string[]> {
+	const filters: FileFilter[] = [
+		{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'tif', 'tiff'] },
+		{ name: 'All Files', extensions: ['*'] }
+	];
+
+	if (isTauri()) {
+		try {
+			const { open } = await import('@tauri-apps/plugin-dialog');
+			const result = (await open({
+				title: 'Select Image Files',
+				filters,
+				multiple: true
+			})) as string | string[] | null;
+			if (Array.isArray(result)) {
+				return result;
+			}
+			if (typeof result === 'string') {
+				return [result];
+			}
+			return [];
+		} catch (error) {
+			console.error('Failed to open file dialog:', error);
+			throw error;
+		}
+	} else {
+		const selected = await openWebFileDialog({ accept: '.jpg,.jpeg,.png,.tif,.tiff' });
+		return selected ? [selected] : [];
+	}
+}
+
+/**
  * Open a directory selection dialog
  * @param title - Dialog title
  * @returns Selected directory path or null if cancelled
@@ -210,6 +245,12 @@ export async function openDirectoryDialog(title?: string): Promise<string | null
  */
 export async function saveGeoTiffDialog(defaultName?: string): Promise<string | null> {
 	const filters: FileFilter[] = [{ name: 'GeoTIFF', extensions: ['tif', 'tiff'] }];
+	const hasExtension = (name: string) => /\.[^./\\]+$/.test(name);
+	const defaultPath = defaultName
+		? hasExtension(defaultName)
+			? defaultName
+			: `${defaultName}.tiff`
+		: undefined;
 
 	if (isTauri()) {
 		try {
@@ -217,7 +258,7 @@ export async function saveGeoTiffDialog(defaultName?: string): Promise<string | 
 			const result = await save({
 				title: 'Export GeoTIFF',
 				filters,
-				defaultPath: defaultName ? `${defaultName}.tif` : undefined
+				defaultPath
 			});
 			return result;
 		} catch (error) {
@@ -226,7 +267,7 @@ export async function saveGeoTiffDialog(defaultName?: string): Promise<string | 
 		}
 	} else {
 		const name = defaultName || 'output';
-		return `${name}.tif`;
+		return hasExtension(name) ? name : `${name}.tiff`;
 	}
 }
 
@@ -312,6 +353,7 @@ export const fileDialog = {
 	saveProject: saveProjectDialog,
 	openRaster: openRasterDialog,
 	openImage: openImageDialog,
+	openImages: openImageDialogs,
 	openDirectory: openDirectoryDialog,
 	saveGeoTiff: saveGeoTiffDialog,
 	showMessage,

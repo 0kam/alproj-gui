@@ -44,6 +44,7 @@
     "createdAt": "Created At",
     "updatedAt": "Updated At",
     "unsavedChanges": "You have unsaved changes",
+    "confirmDiscardToHome": "You have unsaved changes. Return to the home page without saving?",
     "notFound": "Project not found. Please restart from data input."
   },
   "wizard": {
@@ -128,6 +129,7 @@
     "run": "Run Matching",
     "running": "Matching...",
     "modelDownloadNotice": "Downloading matching model (only on first run)",
+    "modelDownloadPreparing": "Preparing...",
     "error": "Matching Error",
     "failed": "Matching failed",
     "result": "Matching Result",
@@ -174,7 +176,7 @@
     "error": "Export Error",
     "mapPreview": "GeoTIFF Map Preview",
     "output": "Output:",
-    "reexport": "Re-export",
+    "reexport": "Export to another file",
     "steps": {
       "starting": "Starting...",
       "validating": "Validating parameters...",

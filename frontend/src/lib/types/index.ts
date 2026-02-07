@@ -385,7 +385,11 @@ export interface EstimateResponse {
  */
 export interface ExportRequest {
 	project_id: string;
-	output_path: string;
+	output_path?: string | null;
+	target_image_path?: string | null;
+	target_image_paths?: string[] | null;
+	output_dir?: string | null;
+	output_name_template?: string | null;
 	resolution?: number;
 	crs?: string;
 	interpolate?: boolean;
@@ -408,6 +412,7 @@ export interface ExportJobResponse {
  */
 export interface ExportResult {
 	path: string;
+	paths?: string[];
 	log?: string[];
 }
 

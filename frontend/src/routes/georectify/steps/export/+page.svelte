@@ -26,6 +26,8 @@
 	let hasError = false;
 	let errorMessage = '';
 	let exportedPath = $wizardStore.geotiffPath ?? '';
+	let exportedPaths: string[] = exportedPath ? [exportedPath] : [];
+	let lastExportWasAlternateTarget = false;
 
 	// Progress state
 	let progress = 0;
@@ -88,6 +90,21 @@
 		}
 	}
 
+	function extractResultPaths(result: ExportResult | null | undefined): string[] {
+		return Array.isArray(result?.paths)
+			? result.paths.filter((path) => typeof path === 'string' && path.length > 0)
+			: result?.path
+				? [result.path]
+				: [];
+	}
+
+	function isAlternateExport(request: ExportRequest): boolean {
+		return Boolean(
+			request.target_image_path ||
+			(Array.isArray(request.target_image_paths) && request.target_image_paths.length > 0)
+		);
+	}
+
 	function connectWebSocket(id: string): void {
 		const wsUrl = api.getBaseUrl().replace(/^http/, 'ws') + `/api/jobs/${id}/ws`;
 		ws = new WebSocket(wsUrl);
@@ -104,11 +121,17 @@
 					isComplete = true;
 					// Extract path from result
 					const result = data.result as ExportResult | null;
-					if (result?.path) {
-						exportedPath = result.path;
-						wizardStore.setGeotiffPath(exportedPath);
+					const paths = extractResultPaths(result);
+					if (paths.length > 0) {
+						exportedPaths = paths;
+						if (!lastExportWasAlternateTarget) {
+							exportedPath = paths[0];
+							wizardStore.setGeotiffPath(exportedPath);
+						}
 						wizardStore.completeStep(4);
-						void loadPreview(exportedPath);
+						if (!lastExportWasAlternateTarget && paths.length === 1) {
+							void loadPreview(exportedPath);
+						}
 					}
 					closeWebSocket();
 				} else if (data.status === 'failed') {
@@ -144,13 +167,19 @@
 								result?: ExportResult;
 								error?: string;
 							}>(`/api/jobs/${jobId}`);
-							if (job.status === 'completed' && job.result?.path) {
+							const paths = extractResultPaths(job.result ?? null);
+							if (job.status === 'completed' && paths.length > 0) {
 								isExporting = false;
 								isComplete = true;
-								exportedPath = job.result.path;
-								wizardStore.setGeotiffPath(exportedPath);
+								exportedPaths = paths;
+								if (!lastExportWasAlternateTarget) {
+									exportedPath = paths[0];
+									wizardStore.setGeotiffPath(exportedPath);
+								}
 								wizardStore.completeStep(4);
-								void loadPreview(exportedPath);
+								if (!lastExportWasAlternateTarget && paths.length === 1) {
+									void loadPreview(exportedPath);
+								}
 							} else if (job.status === 'failed') {
 								isExporting = false;
 								hasError = true;
@@ -184,6 +213,7 @@
 			project_id: projectId,
 			surface_distance: $wizardStore.matchingParams?.surface_distance ?? event.detail.surface_distance
 		};
+		lastExportWasAlternateTarget = isAlternateExport(request);
 
 		isExporting = true;
 		hasError = false;
@@ -216,6 +246,8 @@
 		closeWebSocket();
 		isComplete = false;
 		exportedPath = '';
+		exportedPaths = [];
+		lastExportWasAlternateTarget = false;
 		jobId = null;
 		progress = 0;
 		progressStep = '';
@@ -273,6 +305,7 @@
 					{projectId}
 					defaultCrs={projectCrs}
 					templatePath={inputData.ortho?.path ?? null}
+					targetImagePath={inputData.targetImage?.path ?? null}
 					submitting={isExporting}
 					on:export={handleExport}
 				/>
@@ -305,21 +338,42 @@
 	{:else}
 		<Card title={t('export.mapPreview')}>
 			<div class="space-y-4">
-				<div class="text-sm text-gray-600">
-					{t('export.output')} <span class="font-mono text-xs">{exportedPath}</span>
-				</div>
-				<div class="h-96 border rounded-lg overflow-hidden">
-					<MapView
-						bounds={overlayBounds}
-						on:load={handleMapLoad}
-					>
-						{#if mapLoaded && map && previewUrl && overlayBounds}
-							<RasterOverlay {map} imageUrl={previewUrl} bounds={overlayBounds} />
-						{/if}
-					</MapView>
-				</div>
-				{#if previewError}
-					<p class="text-sm text-red-600">{previewError}</p>
+				{#if exportedPath}
+					<div class="text-sm text-gray-600">
+						{t('export.output')} <span class="font-mono text-xs">{exportedPath}</span>
+					</div>
+					<div class="h-96 border rounded-lg overflow-hidden">
+						<MapView
+							bounds={overlayBounds}
+							on:load={handleMapLoad}
+						>
+							{#if mapLoaded && map && previewUrl && overlayBounds}
+								<RasterOverlay {map} imageUrl={previewUrl} bounds={overlayBounds} />
+							{/if}
+						</MapView>
+					</div>
+					{#if previewError}
+						<p class="text-sm text-red-600">{previewError}</p>
+					{/if}
+				{/if}
+				{#if lastExportWasAlternateTarget && exportedPaths.length > 0}
+					<div class="text-sm text-gray-600">
+						他画像への適用結果を {exportedPaths.length} 件出力しました（地図プレビューは最適化対象画像のままです）。
+					</div>
+					<div class="max-h-80 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs font-mono text-gray-700 space-y-1">
+						{#each exportedPaths as path}
+							<div class="break-all">{path}</div>
+						{/each}
+					</div>
+				{:else if !exportedPath && exportedPaths.length > 0}
+					<div class="text-sm text-gray-600">
+						GeoTIFFを {exportedPaths.length} 件出力しました。
+					</div>
+					<div class="max-h-80 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs font-mono text-gray-700 space-y-1">
+						{#each exportedPaths as path}
+							<div class="break-all">{path}</div>
+						{/each}
+					</div>
 				{/if}
 			</div>
 			<svelte:fragment slot="footer">

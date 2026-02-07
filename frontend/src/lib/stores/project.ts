@@ -14,7 +14,8 @@ import type {
 	ProjectSummary,
 	CreateProjectRequest,
 	SaveProjectResponse,
-	UpdateProjectRequest
+	UpdateProjectRequest,
+	ProcessResult
 } from '$lib/types';
 import { api } from '$lib/services/api';
 import { wizardStore } from './wizard';
@@ -151,6 +152,14 @@ function createProjectStore() {
 				const projectName = filename.replace(/\.alproj$/i, '') || state.currentProject.name;
 
 				const wizardState = wizardStore.getState();
+				const baseProcessResult = wizardState.processResult ?? state.currentProject.process_result ?? null;
+				const processResult: ProcessResult | null =
+					baseProcessResult || wizardState.geotiffPath !== null
+						? {
+								...(baseProcessResult ?? {}),
+								geotiff_path: wizardState.geotiffPath ?? undefined
+							}
+						: null;
 				const request: UpdateProjectRequest = {
 					name: projectName,
 					input_data: {
@@ -164,7 +173,7 @@ function createProjectStore() {
 						: wizardState.estimatedParams
 							? { optimized: wizardState.estimatedParams }
 							: null,
-					process_result: wizardState.processResult ?? null,
+					process_result: processResult,
 					matching_result: {
 						match_plot: wizardState.matchingPlot ?? null,
 						log: wizardState.matchingLog ?? [],

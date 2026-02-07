@@ -55,7 +55,26 @@ class ExportRequest(BaseModel):
     """Request body for exporting GeoTIFF."""
 
     project_id: str = Field(..., description="Project ID to export")
-    output_path: str = Field(..., description="Output file path")
+    output_path: str | None = Field(
+        default=None,
+        description="Output file path (single-image export mode)",
+    )
+    target_image_path: str | None = Field(
+        default=None,
+        description="Optional alternate target image path for single-image export",
+    )
+    target_image_paths: list[str] | None = Field(
+        default=None,
+        description="Optional list of target image paths for batch export",
+    )
+    output_dir: str | None = Field(
+        default=None,
+        description="Output directory for batch export",
+    )
+    output_name_template: str | None = Field(
+        default=None,
+        description="Output filename template for batch export ({name}, {date}, {index})",
+    )
     resolution: float = Field(default=1.0, gt=0.0, description="Output resolution (m/pixel)")
     crs: str = Field(default="EPSG:6690", description="Output coordinate reference system")
     interpolate: bool = Field(default=True, description="Enable interpolation for smoother output")

@@ -7,11 +7,12 @@
   - Main content area
 -->
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import '../app.css';
 	import { t } from '$lib/i18n';
-	import { saveProjectDialog } from '$lib/services/file-dialog';
+	import { saveProjectDialog, showConfirm } from '$lib/services/file-dialog';
 	import {
 		projectStore,
 		currentProject,
@@ -54,6 +55,7 @@
 				: state.estimatedParams
 					? { optimized: state.estimatedParams }
 					: null,
+			geotiff_path: state.geotiffPath ?? null,
 			process_result: state.processResult ?? null,
 			matching_result: {
 				match_plot_len: state.matchingPlot?.length ?? 0,
@@ -125,6 +127,18 @@
 			console.error('Failed to save project:', error);
 		}
 	}
+
+	async function handleHomeClick() {
+		if ($currentProject && $hasUnsavedChanges) {
+			const confirmed = await showConfirm(
+				t('common.confirm'),
+				t('project.confirmDiscardToHome')
+			);
+			if (!confirmed) return;
+		}
+		projectStore.closeProject();
+		await goto('/');
+	}
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -132,7 +146,7 @@
 <div class="app-container">
 	<header class="app-header">
 		<div class="header-content">
-			<a href="/" class="app-logo">
+			<a href="/" class="app-logo" on:click|preventDefault={handleHomeClick}>
 				<h1 class="app-title">{t('app.name')}</h1>
 			</a>
 			<nav class="app-nav">

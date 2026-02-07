@@ -39,6 +39,33 @@ def get_runtime_model_weights_dir() -> Path:
     return base / "alproj-gui" / "imm" / "model_weights"
 
 
+def _has_bundled_hf_snapshots(weights_dir: Path) -> bool:
+    """Return True when bundled HuggingFace snapshots are actually present."""
+    hf_hub_dir = weights_dir / "huggingface" / "hub"
+    if not hf_hub_dir.exists():
+        return False
+    try:
+        return any(child.is_dir() and child.name.startswith("models--") for child in hf_hub_dir.iterdir())
+    except OSError:
+        return False
+
+
+def _has_bundled_torch_checkpoints(weights_dir: Path) -> bool:
+    """Return True when bundled torch checkpoints are present."""
+    checkpoints_dir = weights_dir / "torch" / "hub" / "checkpoints"
+    if not checkpoints_dir.exists():
+        return False
+    try:
+        return any(child.is_file() for child in checkpoints_dir.iterdir())
+    except OSError:
+        return False
+
+
+def has_usable_bundled_weights(weights_dir: Path) -> bool:
+    """Return True only if bundled directory contains meaningful model payload."""
+    return _has_bundled_hf_snapshots(weights_dir) or _has_bundled_torch_checkpoints(weights_dir)
+
+
 def resolve_model_weights_dir(bundle_dir: str | Path | None = None) -> tuple[Path, bool]:
     """Resolve active model weights directory and whether bundled weights are used."""
     if bundle_dir is not None:
@@ -50,7 +77,7 @@ def resolve_model_weights_dir(bundle_dir: str | Path | None = None) -> tuple[Pat
 
     if bundle_path is not None:
         bundled_weights_dir = bundle_path / "imm" / "model_weights"
-        if bundled_weights_dir.exists():
+        if bundled_weights_dir.exists() and has_usable_bundled_weights(bundled_weights_dir):
             return bundled_weights_dir, True
 
     return get_runtime_model_weights_dir(), False

@@ -3,6 +3,7 @@
 
 use log::{error, info, warn};
 use std::fs::{self, OpenOptions};
+use std::io::{Read, Seek, SeekFrom};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -117,6 +118,12 @@ impl Default for AppState {
             backend_log_path: Mutex::new(None),
         }
     }
+}
+
+#[derive(serde::Serialize)]
+struct BackendLogChunk {
+    next_offset: usize,
+    text: String,
 }
 
 fn resolve_backend_log_path(app: &tauri::AppHandle) -> PathBuf {
@@ -237,6 +244,104 @@ fn find_uv_path() -> Option<String> {
     Some("uv".to_string())
 }
 
+fn get_dev_backend_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let src_tauri_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?
+        .parent()
+        .ok_or("Failed to get parent dir")?
+        .parent()
+        .ok_or("Failed to get src-tauri dir")?
+        .to_path_buf();
+
+    src_tauri_dir
+        .parent()
+        .ok_or_else(|| "Failed to get project root".to_string())
+        .map(|p| p.join("backend"))
+}
+
+fn find_dev_python(backend_dir: &Path) -> Option<PathBuf> {
+    #[cfg(windows)]
+    let candidates = [
+        backend_dir.join(".venv").join("Scripts").join("python.exe"),
+        backend_dir
+            .join(".venv")
+            .join("Scripts")
+            .join("python3.exe"),
+    ];
+    #[cfg(not(windows))]
+    let candidates = [
+        backend_dir.join(".venv").join("bin").join("python"),
+        backend_dir.join(".venv").join("bin").join("python3"),
+    ];
+
+    candidates.into_iter().find(|p| p.exists())
+}
+
+fn is_backend_process_for_dir(process: &sysinfo::Process, backend_dir: &Path) -> bool {
+    let cmd = process
+        .cmd()
+        .iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    if cmd.is_empty() {
+        return false;
+    }
+
+    let looks_like_uvicorn =
+        cmd.contains("uvicorn") && cmd.contains("app.main:app") && cmd.contains("8765");
+    if !looks_like_uvicorn {
+        return false;
+    }
+
+    if let Some(cwd) = process.cwd() {
+        if cwd.starts_with(backend_dir) {
+            return true;
+        }
+    }
+
+    if let Some(exe) = process.exe() {
+        if exe.starts_with(backend_dir) {
+            return true;
+        }
+    }
+
+    cmd.contains(backend_dir.to_string_lossy().as_ref())
+}
+
+fn cleanup_stale_backend_processes(backend_dir: &Path) -> usize {
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let current_pid = std::process::id();
+    let stale_pids = sys
+        .processes()
+        .iter()
+        .filter_map(|(pid, process)| {
+            let pid_u32 = pid.as_u32();
+            if pid_u32 == current_pid {
+                return None;
+            }
+            if is_backend_process_for_dir(process, backend_dir) {
+                return Some(pid_u32);
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    for pid in &stale_pids {
+        warn!("Killing stale backend process PID {}", pid);
+        kill_process_tree(*pid);
+        if let Some(process) = sys.process(Pid::from_u32(*pid)) {
+            process.kill();
+        }
+    }
+
+    stale_pids.len()
+}
+
 /// Get the platform-specific sidecar directory name
 fn get_sidecar_dir_name() -> &'static str {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -288,26 +393,8 @@ fn get_sidecar_binary_name() -> &'static str {
 /// Start the Python backend sidecar process
 async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<PathBuf>), String> {
     if is_dev_mode() {
-        // Development mode: use std::process::Command with uv
-        info!("Starting backend in development mode with uv");
-
-        // In development mode, the backend is in the project root's "backend" folder
-        // Get the src-tauri directory, then go up one level to project root
-        let src_tauri_dir = app
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource dir: {}", e))?
-            .parent()
-            .ok_or("Failed to get parent dir")?
-            .parent()
-            .ok_or("Failed to get src-tauri dir")?
-            .to_path_buf();
-
-        // Project root is one level up from src-tauri
-        let backend_dir = src_tauri_dir
-            .parent()
-            .ok_or("Failed to get project root")?
-            .join("backend");
+        info!("Starting backend in development mode");
+        let backend_dir = get_dev_backend_dir(app)?;
 
         info!("Backend directory: {:?}", backend_dir);
 
@@ -319,12 +406,42 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<
             ));
         }
 
-        // Try to find uv in common locations since Tauri doesn't inherit shell PATH
-        let uv_path = find_uv_path().ok_or("Could not find uv. Please ensure uv is installed.")?;
-        info!("Using uv at: {:?}", uv_path);
+        let log_path = resolve_backend_log_path(app);
+        if let Some(parent) = log_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create backend log dir {:?}: {}", parent, e))?;
+        }
+        let stdout_log = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .map_err(|e| format!("Failed to open backend log file {:?}: {}", log_path, e))?;
+        let stderr_log = stdout_log
+            .try_clone()
+            .map_err(|e| format!("Failed to clone backend log file handle: {}", e))?;
 
-        let child = Command::new(&uv_path)
-            .args([
+        let mut command = if let Some(python_path) = find_dev_python(&backend_dir) {
+            info!("Using virtualenv Python at {:?}", python_path);
+            let mut cmd = Command::new(python_path);
+            cmd.args([
+                "-m",
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                BACKEND_HOST,
+                "--port",
+                &BACKEND_PORT.to_string(),
+            ]);
+            cmd
+        } else {
+            let uv_path =
+                find_uv_path().ok_or("Could not find uv. Please ensure uv is installed.")?;
+            warn!(
+                "Virtualenv Python not found under {:?}; falling back to uv run",
+                backend_dir.join(".venv")
+            );
+            let mut cmd = Command::new(uv_path);
+            cmd.args([
                 "run",
                 "uvicorn",
                 "app.main:app",
@@ -332,16 +449,21 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<
                 BACKEND_HOST,
                 "--port",
                 &BACKEND_PORT.to_string(),
-            ])
+            ]);
+            cmd
+        };
+
+        let child = command
             .current_dir(&backend_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::from(stdout_log))
+            .stderr(Stdio::from(stderr_log))
             .spawn()
             .map_err(|e| format!("Failed to spawn uv process: {}", e))?;
 
         info!("Backend process started with PID: {:?}", child.id());
+        info!("Backend log path: {:?}", log_path);
 
-        Ok((ProcessHandle::StdChild(child), None))
+        Ok((ProcessHandle::StdChild(child), Some(log_path)))
     } else {
         // Production mode: use bundled sidecar from resources
         // The sidecar is built with PyInstaller --onedir and needs _internal next to it
@@ -496,6 +618,21 @@ pub fn run() {
             let state = app.state::<Arc<AppState>>().inner().clone();
 
             tauri::async_runtime::spawn(async move {
+                if is_dev_mode() {
+                    match get_dev_backend_dir(&app_handle) {
+                        Ok(backend_dir) => {
+                            let cleaned = cleanup_stale_backend_processes(&backend_dir);
+                            if cleaned > 0 {
+                                warn!("Cleaned up {} stale backend process(es)", cleaned);
+                                sleep(Duration::from_millis(300)).await;
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Skipping stale backend cleanup: {}", e);
+                        }
+                    }
+                }
+
                 match start_sidecar(&app_handle).await {
                     Ok((child, log_path)) => {
                         // Store the child process handle
@@ -547,6 +684,8 @@ pub fn run() {
             greet,
             get_backend_status,
             check_backend_health,
+            get_backend_log_cursor,
+            read_backend_log_chunk,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -594,6 +733,65 @@ async fn check_backend_health() -> Result<serde_json::Value, String> {
         .json::<serde_json::Value>()
         .await
         .map_err(|e| format!("Failed to parse health check response: {}", e))
+}
+
+#[tauri::command]
+async fn get_backend_log_cursor(state: tauri::State<'_, Arc<AppState>>) -> Result<usize, String> {
+    let log_path = state.backend_log_path.lock().await.clone();
+    let Some(path) = log_path else {
+        return Ok(0);
+    };
+
+    let meta = fs::metadata(&path)
+        .map_err(|e| format!("Failed to read backend log metadata {:?}: {}", path, e))?;
+    Ok(meta.len() as usize)
+}
+
+#[tauri::command]
+async fn read_backend_log_chunk(
+    state: tauri::State<'_, Arc<AppState>>,
+    offset: usize,
+    max_bytes: Option<usize>,
+) -> Result<BackendLogChunk, String> {
+    let log_path = state.backend_log_path.lock().await.clone();
+    let Some(path) = log_path else {
+        return Ok(BackendLogChunk {
+            next_offset: offset,
+            text: String::new(),
+        });
+    };
+
+    let mut file = fs::File::open(&path)
+        .map_err(|e| format!("Failed to open backend log {:?}: {}", path, e))?;
+    let file_len = file
+        .metadata()
+        .map_err(|e| format!("Failed to read backend log metadata {:?}: {}", path, e))?
+        .len() as usize;
+
+    let normalized_offset = offset.min(file_len);
+    file.seek(SeekFrom::Start(normalized_offset as u64))
+        .map_err(|e| format!("Failed to seek backend log {:?}: {}", path, e))?;
+
+    let limit = max_bytes.unwrap_or(64 * 1024).clamp(1024, 1024 * 1024);
+    let to_read = (file_len - normalized_offset).min(limit);
+    if to_read == 0 {
+        return Ok(BackendLogChunk {
+            next_offset: normalized_offset,
+            text: String::new(),
+        });
+    }
+
+    let mut buffer = vec![0u8; to_read];
+    let read = file
+        .read(&mut buffer)
+        .map_err(|e| format!("Failed to read backend log {:?}: {}", path, e))?;
+    buffer.truncate(read);
+    let text = String::from_utf8_lossy(&buffer).to_string();
+
+    Ok(BackendLogChunk {
+        next_offset: normalized_offset + read,
+        text,
+    })
 }
 
 #[cfg(test)]

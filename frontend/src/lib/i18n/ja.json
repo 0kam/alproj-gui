@@ -44,6 +44,7 @@
     "createdAt": "作成日時",
     "updatedAt": "更新日時",
     "unsavedChanges": "未保存の変更があります",
+    "confirmDiscardToHome": "未保存の変更があります。保存せずにトップページへ戻りますか？",
     "notFound": "プロジェクトが見つかりません。データ入力からやり直してください。"
   },
   "wizard": {
@@ -128,6 +129,7 @@
     "run": "マッチング実行",
     "running": "マッチング中...",
     "modelDownloadNotice": "マッチングモデルダウンロード中（初回のみ実行されます）",
+    "modelDownloadPreparing": "準備中...",
     "error": "マッチングエラー",
     "failed": "マッチングに失敗しました",
     "result": "マッチング結果",
@@ -174,7 +176,7 @@
     "error": "エクスポートエラー",
     "mapPreview": "GeoTIFFマッププレビュー",
     "output": "出力:",
-    "reexport": "再エクスポート",
+    "reexport": "再エクスポート/別の画像をGeoTIFF化",
     "steps": {
       "starting": "開始中...",
       "validating": "パラメータ検証中...",

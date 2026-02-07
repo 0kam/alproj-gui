@@ -14,6 +14,7 @@ import builtins
 import logging
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -1110,22 +1111,60 @@ async def run_georectification(
         raise
 
 
+def _ensure_tiff_suffix(filename: str) -> str:
+    """Ensure the output filename has a TIFF extension."""
+    if filename.lower().endswith((".tif", ".tiff")):
+        return filename
+    return f"{filename}.tiff"
+
+
+def _build_batch_output_path(
+    output_dir: Path,
+    output_name_template: str,
+    target_image_path: str,
+    index: int,
+    date_stamp: str,
+) -> str:
+    """Build batch output path from template and target image metadata."""
+    stem = Path(target_image_path).stem.strip() or f"image_{index:03d}"
+    try:
+        filename = output_name_template.format(name=stem, date=date_stamp, index=f"{index:03d}")
+    except KeyError as e:
+        raise ValueError(
+            "Invalid output_name_template. Supported placeholders: {name}, {date}, {index}"
+        ) from e
+
+    filename = filename.strip()
+    if not filename:
+        raise ValueError("output_name_template generated an empty filename")
+
+    return str(output_dir / _ensure_tiff_suffix(filename))
+
+
 async def run_export_job(
     project_id: str,
-    output_path: str,
+    output_path: str | None = None,
+    target_image_path: str | None = None,
+    target_image_paths: list[str] | None = None,
+    output_dir: str | None = None,
+    output_name_template: str | None = None,
     resolution: float = 1.0,
     crs: str = "EPSG:6690",
     interpolate: bool = True,
     max_dist: float | None = None,
     surface_distance: float = 3000.0,
     template_path: str | None = None,
-    job: "Job | None" = None,
+    job: Job | None = None,
 ) -> dict[str, Any]:
     """Run GeoTIFF export as a background job with progress reporting.
 
     Args:
         project_id: Project UUID string.
-        output_path: Destination file path.
+        output_path: Destination file path (single-image mode).
+        target_image_path: Optional alternate target image (single-image mode).
+        target_image_paths: Optional target images for batch mode.
+        output_dir: Output directory for batch mode.
+        output_name_template: Output filename template for batch mode.
         resolution: Output resolution in meters per pixel.
         crs: Output coordinate reference system.
         interpolate: Whether to interpolate for smoother output.
@@ -1142,7 +1181,7 @@ async def run_export_job(
         ValueError: If parameters are invalid.
         RuntimeError: If export fails.
     """
-    result: dict[str, Any] = {"path": None, "log": []}
+    result: dict[str, Any] = {"path": None, "paths": [], "log": []}
 
     async def update_progress(progress: float, step: str, message: str) -> None:
         """Update progress if job is provided."""
@@ -1154,25 +1193,55 @@ async def run_export_job(
         # Step 1: Validation
         await update_progress(0.0, "validating", "Validating parameters...")
 
-        # Validate output path
-        output_dir = Path(output_path).parent
-        if not output_dir.exists():
-            try:
-                output_dir.mkdir(parents=True, exist_ok=True)
-            except PermissionError as e:
-                raise ValueError(
-                    f"Cannot create output directory '{output_dir}': Permission denied. "
-                    "Please choose a different location."
-                ) from e
-
-        # Check write permission
-        if not os.access(output_dir, os.W_OK):
+        batch_targets = [p.strip() for p in (target_image_paths or []) if p and p.strip()]
+        single_target = target_image_path.strip() if target_image_path else None
+        if batch_targets and single_target:
             raise ValueError(
-                f"Cannot write to directory '{output_dir}': Permission denied. "
-                "Please choose a different location."
+                "Specify either target_image_path (single) or target_image_paths (batch), not both"
             )
 
-        result["log"].append(f"Output path: {output_path}")
+        is_batch = len(batch_targets) > 0
+        if is_batch:
+            if not output_dir:
+                raise ValueError("output_dir is required for batch export")
+            batch_output_dir = Path(output_dir)
+            if not output_name_template or not output_name_template.strip():
+                output_name_template = "{name}_alproj_{date}"
+            output_name_template = output_name_template.strip()
+            if not batch_output_dir.exists():
+                try:
+                    batch_output_dir.mkdir(parents=True, exist_ok=True)
+                except PermissionError as e:
+                    raise ValueError(
+                        f"Cannot create output directory '{batch_output_dir}': Permission denied. "
+                        "Please choose a different location."
+                    ) from e
+            if not os.access(batch_output_dir, os.W_OK):
+                raise ValueError(
+                    f"Cannot write to directory '{batch_output_dir}': Permission denied. "
+                    "Please choose a different location."
+                )
+            result["log"].append(f"Batch output directory: {batch_output_dir}")
+            result["log"].append(f"Batch filename template: {output_name_template}")
+        else:
+            if not output_path:
+                raise ValueError("output_path is required for single-image export")
+            single_output_dir = Path(output_path).parent
+            if not single_output_dir.exists():
+                try:
+                    single_output_dir.mkdir(parents=True, exist_ok=True)
+                except PermissionError as e:
+                    raise ValueError(
+                        f"Cannot create output directory '{single_output_dir}': Permission denied. "
+                        "Please choose a different location."
+                    ) from e
+
+            if not os.access(single_output_dir, os.W_OK):
+                raise ValueError(
+                    f"Cannot write to directory '{single_output_dir}': Permission denied. "
+                    "Please choose a different location."
+                )
+            result["log"].append(f"Output path: {output_path}")
 
         # Step 2: Load project
         await update_progress(0.05, "loading", "Loading project data...")
@@ -1184,19 +1253,16 @@ async def run_export_job(
             raise FileNotFoundError(f"Project not found: {project_id}")
 
         input_data = project.input_data
-        if not input_data or not input_data.dsm or not input_data.ortho or not input_data.target_image:
+        if not input_data or not input_data.dsm or not input_data.ortho:
             raise FileNotFoundError("Project input data is incomplete")
 
         dsm_path = input_data.dsm.path
         ortho_path = input_data.ortho.path
-        target_image_path = input_data.target_image.path
 
         if not Path(dsm_path).exists():
             raise FileNotFoundError(f"DSM file not found: {dsm_path}")
         if not Path(ortho_path).exists():
             raise FileNotFoundError(f"Ortho file not found: {ortho_path}")
-        if not Path(target_image_path).exists():
-            raise FileNotFoundError(f"Target image not found: {target_image_path}")
 
         camera_params = None
         if project.camera_params:
@@ -1209,28 +1275,34 @@ async def run_export_job(
             if not template.exists():
                 raise FileNotFoundError(f"Template raster not found: {template_path}")
 
+        project_target = input_data.target_image.path if input_data.target_image else None
+        if is_batch:
+            target_paths = batch_targets
+        elif single_target:
+            target_paths = [single_target]
+        elif project_target:
+            target_paths = [project_target]
+        else:
+            raise FileNotFoundError("Project target image is not set")
+
+        unique_target_paths: list[str] = []
+        seen: set[str] = set()
+        for path in target_paths:
+            if path not in seen:
+                unique_target_paths.append(path)
+                seen.add(path)
+        target_paths = unique_target_paths
+
+        for target_path in target_paths:
+            if not Path(target_path).exists():
+                raise FileNotFoundError(f"Target image not found: {target_path}")
+
         result["log"].append("Project data loaded")
+        result["log"].append(f"Target image count: {len(target_paths)}")
 
-        # Step 3: Load target image (CPU-intensive, run in executor)
-        await update_progress(0.1, "loading_image", "Loading target image...")
-
-        def _load_image() -> tuple[np.ndarray, int, int]:
-            import cv2
-            target_img = cv2.imread(target_image_path)
-            if target_img is None:
-                raise ValueError(f"Cannot read target image: {target_image_path}")
-            target_h, target_w = target_img.shape[:2]
-            return target_img, target_w, target_h
-
+        # Step 3: Create GeoObject (CPU-intensive)
+        await update_progress(0.1, "surface", "Creating surface mesh...")
         loop = asyncio.get_running_loop()
-        target_img, target_w, target_h = await loop.run_in_executor(None, _load_image)
-        result["log"].append(f"Target image: {target_w}x{target_h}")
-
-        # Build params dict for alproj with correct dimensions
-        params_dict = _camera_params_to_dict(camera_params, target_w, target_h)
-
-        # Step 4: Create GeoObject (CPU-intensive)
-        await update_progress(0.15, "surface", "Creating surface mesh...")
 
         def _create_geo() -> GeoObject:
             geo, _ = create_geo_object_with_auto_adjust(
@@ -1246,49 +1318,120 @@ async def run_export_job(
         geo = await loop.run_in_executor(None, _create_geo)
         result["log"].append("Surface mesh created")
 
-        # Step 5: Reverse projection (most time-consuming step)
-        await update_progress(0.3, "projecting", "Reverse projecting image...")
+        date_stamp = datetime.now().strftime("%Y%m%d")
+        output_paths: list[str] = []
+        if is_batch:
+            assert output_dir is not None
+            assert output_name_template is not None
+            batch_output_dir = Path(output_dir)
+            for index, current_target_path in enumerate(target_paths, start=1):
+                generated = _build_batch_output_path(
+                    output_dir=batch_output_dir,
+                    output_name_template=output_name_template,
+                    target_image_path=current_target_path,
+                    index=index,
+                    date_stamp=date_stamp,
+                )
+                output_paths.append(generated)
+            if len(set(output_paths)) != len(output_paths):
+                raise ValueError(
+                    "output_name_template generated duplicate output filenames in batch export"
+                )
+        else:
+            assert output_path is not None
+            output_paths = [output_path]
 
-        def _reverse_proj() -> "pd.DataFrame":
-            from alproj.project import reverse_proj
-            return reverse_proj(target_img, geo.vert, geo.ind, params_dict, geo.offsets)
+        # Step 4: Export each target image
+        total_targets = len(target_paths)
+        progress_span = 0.8
+        effective_max_dist = max_dist if max_dist is not None else resolution
 
-        df = await loop.run_in_executor(None, _reverse_proj)
-        result["log"].append(f"Reverse projection complete: {len(df)} points")
-
-        # Step 6: Write GeoTIFF (also time-consuming)
-        await update_progress(0.7, "writing", "Writing GeoTIFF...")
-
-        def _write_geotiff() -> None:
-            from alproj.project import to_geotiff
-            effective_max_dist = max_dist if max_dist is not None else resolution
-            to_geotiff(
-                df,
-                output_path,
-                resolution=resolution,
-                crs=crs,
-                bands=["R", "G", "B"],
-                interpolate=interpolate,
-                max_dist=effective_max_dist,
-                agg_func="mean",
+        for idx, (current_target_path, current_output_path) in enumerate(
+            zip(target_paths, output_paths, strict=True),
+            start=1,
+        ):
+            base_progress = 0.15 + progress_span * ((idx - 1) / total_targets)
+            await update_progress(
+                base_progress + progress_span * (0.1 / total_targets),
+                "loading_image",
+                f"Loading target image ({idx}/{total_targets})...",
             )
 
-        await loop.run_in_executor(None, _write_geotiff)
-        result["log"].append("GeoTIFF written")
+            def _load_image(target_path: str = current_target_path) -> tuple[np.ndarray, int, int]:
+                import cv2
+
+                target_img = cv2.imread(target_path)
+                if target_img is None:
+                    raise ValueError(f"Cannot read target image: {target_path}")
+                target_h, target_w = target_img.shape[:2]
+                return target_img, target_w, target_h
+
+            target_img, target_w, target_h = await loop.run_in_executor(None, _load_image)
+            result["log"].append(
+                f"[{idx}/{total_targets}] Target image: {current_target_path} ({target_w}x{target_h})"
+            )
+
+            params_dict = _camera_params_to_dict(camera_params, target_w, target_h)
+
+            await update_progress(
+                base_progress + progress_span * (0.45 / total_targets),
+                "projecting",
+                f"Reverse projecting ({idx}/{total_targets})...",
+            )
+
+            def _reverse_proj(
+                target_image: np.ndarray = target_img,
+                camera_dict: dict[str, Any] = params_dict,
+            ) -> pd.DataFrame:
+                from alproj.project import reverse_proj
+
+                return reverse_proj(target_image, geo.vert, geo.ind, camera_dict, geo.offsets)
+
+            df = await loop.run_in_executor(None, _reverse_proj)
+
+            await update_progress(
+                base_progress + progress_span * (0.9 / total_targets),
+                "writing",
+                f"Writing GeoTIFF ({idx}/{total_targets})...",
+            )
+
+            def _write_geotiff(
+                projected_df: pd.DataFrame = df,
+                output_file: str = current_output_path,
+            ) -> None:
+                from alproj.project import to_geotiff
+
+                to_geotiff(
+                    projected_df,
+                    output_file,
+                    resolution=resolution,
+                    crs=crs,
+                    bands=["R", "G", "B"],
+                    interpolate=interpolate,
+                    max_dist=effective_max_dist,
+                    agg_func="mean",
+                )
+
+            await loop.run_in_executor(None, _write_geotiff)
+            result["log"].append(
+                f"[{idx}/{total_targets}] GeoTIFF written: {current_output_path} ({len(df)} points)"
+            )
 
         # Step 7: Finalize
         await update_progress(0.95, "finalizing", "Finalizing...")
 
-        if project.process_result is not None:
-            project.process_result.geotiff_path = output_path
+        should_update_primary_geotiff = (not is_batch) and (single_target is None)
+        if project.process_result is not None and output_paths and should_update_primary_geotiff:
+            project.process_result.geotiff_path = output_paths[0]
             save_project(project)
 
-        result["path"] = output_path
+        result["path"] = output_paths[0]
+        result["paths"] = output_paths
         result["log"].append("Export complete")
 
         await update_progress(1.0, "complete", "Export complete")
 
-        logger.info(f"GeoTIFF export complete: {output_path}")
+        logger.info(f"GeoTIFF export complete: {output_paths}")
         return result
 
     except asyncio.CancelledError:
