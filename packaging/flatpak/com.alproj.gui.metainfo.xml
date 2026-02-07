@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.alproj.gui</id>
+  <name>ALPROJ GUI</name>
+  <summary>Mountain photo georectification desktop app</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <description>
+    <p>ALPROJ GUI georectifies mountain photographs using DSM and orthophoto inputs and exports GeoTIFF outputs.</p>
+  </description>
+  <launchable type="desktop-id">com.alproj.gui.desktop</launchable>
+  <provides>
+    <binary>alproj-gui</binary>
+  </provides>
+</component>

@@ -1,0 +1,35 @@
+app-id: com.alproj.gui
+runtime: org.freedesktop.Platform
+runtime-version: "23.08"
+sdk: org.freedesktop.Sdk
+command: alproj-gui
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+modules:
+  - name: alproj-gui
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 alproj-gui /app/bin/alproj-gui
+      - install -Dm644 com.alproj.gui.desktop /app/share/applications/com.alproj.gui.desktop
+      - install -Dm644 com.alproj.gui.metainfo.xml /app/share/metainfo/com.alproj.gui.metainfo.xml
+      - install -Dm644 com.alproj.gui.png /app/share/icons/hicolor/128x128/apps/com.alproj.gui.png
+      - mkdir -p /app/lib/alproj-gui/binaries
+      - cp -a binaries/sidecar-x86_64-unknown-linux-gnu /app/lib/alproj-gui/binaries/
+    sources:
+      - type: file
+        path: ../../src-tauri/target/x86_64-unknown-linux-gnu/release/alproj-gui
+      - type: dir
+        path: ../../src-tauri/binaries/sidecar-x86_64-unknown-linux-gnu
+        dest: binaries/sidecar-x86_64-unknown-linux-gnu
+      - type: file
+        path: com.alproj.gui.desktop
+      - type: file
+        path: com.alproj.gui.metainfo.xml
+      - type: file
+        path: ../../src-tauri/icons/128x128.png
+        dest-filename: com.alproj.gui.png

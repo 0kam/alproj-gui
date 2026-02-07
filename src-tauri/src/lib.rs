@@ -474,16 +474,43 @@ async fn start_sidecar(app: &tauri::AppHandle) -> Result<(ProcessHandle, Option<
             .resource_dir()
             .map_err(|e| format!("Failed to get resource dir: {}", e))?;
 
-        // Sidecar is in Resources/binaries/sidecar-{platform}/
-        let sidecar_dir = resource_dir.join("binaries").join(get_sidecar_dir_name());
-        let sidecar_path = sidecar_dir.join(get_sidecar_binary_name());
+        // Flatpak can place resources under /app/lib/<name>, so probe multiple roots.
+        #[cfg(target_os = "linux")]
+        let resource_roots = {
+            let mut roots = vec![resource_dir];
+            roots.push(PathBuf::from("/app/lib/alproj-gui"));
+            roots.push(PathBuf::from("/app/lib/com.alproj.gui"));
+            roots
+        };
+        #[cfg(not(target_os = "linux"))]
+        let resource_roots = vec![resource_dir];
+
+        let mut selected_sidecar: Option<(PathBuf, PathBuf)> = None;
+        for root in &resource_roots {
+            let sidecar_dir = root.join("binaries").join(get_sidecar_dir_name());
+            let sidecar_path = sidecar_dir.join(get_sidecar_binary_name());
+            if sidecar_path.exists() {
+                selected_sidecar = Some((sidecar_dir, sidecar_path));
+                break;
+            }
+        }
+
+        let (sidecar_dir, sidecar_path) = selected_sidecar.ok_or_else(|| {
+            let roots = resource_roots
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "Sidecar binary not found. checked_roots=[{}], sidecar_dir_name={}, sidecar_binary_name={}",
+                roots,
+                get_sidecar_dir_name(),
+                get_sidecar_binary_name()
+            )
+        })?;
 
         info!("Sidecar directory: {:?}", sidecar_dir);
         info!("Sidecar path: {:?}", sidecar_path);
-
-        if !sidecar_path.exists() {
-            return Err(format!("Sidecar binary not found: {:?}", sidecar_path));
-        }
 
         // Start the sidecar process
         // Must run from sidecar_dir so it can find _internal

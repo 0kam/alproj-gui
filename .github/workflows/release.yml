@@ -29,7 +29,7 @@ jobs:
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
-            tauri_args: --target x86_64-unknown-linux-gnu --bundles appimage
+            tauri_args: --target x86_64-unknown-linux-gnu --bundles none
             pyinstaller_mode: onedir
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
@@ -73,7 +73,9 @@ jobs:
             patchelf \
             libfuse2 \
             libglib2.0-dev \
-            libgdal-dev
+            libgdal-dev \
+            flatpak \
+            flatpak-builder
 
       # ============================================
       # Python Setup (for backend sidecar)
@@ -459,10 +461,41 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPIMAGE_EXTRACT_AND_RUN: '1'
         with:
           projectPath: src-tauri
           args: ${{ matrix.tauri_args }}
+
+      - name: Build Flatpak bundle (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          set -euo pipefail
+
+          APP_BIN="src-tauri/target/${{ matrix.rust_target }}/release/alproj-gui"
+          if [ ! -x "$APP_BIN" ]; then
+            echo "Missing Linux app binary: $APP_BIN"
+            ls -la "src-tauri/target/${{ matrix.rust_target }}/release" || true
+            exit 1
+          fi
+
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+          flatpak-builder \
+            --user \
+            --install-deps-from=flathub \
+            --force-clean \
+            --repo=flatpak-repo \
+            flatpak-build \
+            packaging/flatpak/com.alproj.gui.yml
+
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          mkdir -p dist-flatpak
+          flatpak build-bundle \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+            flatpak-repo \
+            "dist-flatpak/ALPROJ.GUI_${VERSION}_x86_64.flatpak" \
+            com.alproj.gui \
+            stable
+          ls -lh dist-flatpak
 
       # ============================================
       # Upload Artifacts
@@ -482,7 +515,7 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+            dist-flatpak/*.flatpak
           if-no-files-found: error
 
       - name: Upload artifacts (Windows)
@@ -529,23 +562,36 @@ jobs:
           set -euo pipefail
           deb_count=$(find artifacts -type f -name "*.deb" | wc -l | tr -d ' ')
           if [ "$deb_count" -gt 0 ]; then
-            echo "Unexpected .deb artifact detected. Linux release must be AppImage-only."
+            echo "Unexpected .deb artifact detected. Linux release must be Flatpak-only."
             find artifacts -type f -name "*.deb"
             exit 1
           fi
+          appimage_count=$(find artifacts -type f -name "*.AppImage" | wc -l | tr -d ' ')
+          if [ "$appimage_count" -gt 0 ]; then
+            echo "Unexpected .AppImage artifact detected. Linux release must be Flatpak-only."
+            find artifacts -type f -name "*.AppImage"
+            exit 1
+          fi
 
-      - name: Validate Linux AppImage size (<1GB)
+      - name: Validate Linux Flatpak size (<1GB)
         run: |
           set -euo pipefail
           limit=1000000000
+          flatpak_count=0
           while IFS= read -r -d '' file; do
+            flatpak_count=$((flatpak_count + 1))
             size=$(stat -c%s "$file")
             if [ "$size" -ge "$limit" ]; then
               echo "Asset exceeds 1GB limit: $file (${size} bytes)"
               exit 1
             fi
             echo "OK: $file (${size} bytes)"
-          done < <(find artifacts -type f -name "*.AppImage" -print0)
+          done < <(find artifacts -type f -name "*.flatpak" -print0)
+
+          if [ "$flatpak_count" -eq 0 ]; then
+            echo "No .flatpak artifact found"
+            exit 1
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -557,7 +603,7 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
-            artifacts/**/*.AppImage
+            artifacts/**/*.flatpak
             artifacts/**/*.msi
             artifacts/**/*.exe
         env:

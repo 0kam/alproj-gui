@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ALPROJ GUI
+Comment=Mountain photo georectification tool
+Exec=alproj-gui
+Icon=com.alproj.gui
+Terminal=false
+Type=Application
+Categories=Science;Graphics;Geography;
+StartupNotify=true
