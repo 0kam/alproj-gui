@@ -28,6 +28,7 @@
 	const defaultOptimizeOrientation = true;
 	const defaultOptimizeFov = true;
 	const defaultOptimizeDistortion = true;
+	const ESTIMATION_TIMEOUT_MS = 600000; // 10 minutes
 
 	// Initialize from store or use defaults
 	let optimizer: OptimizerType = $wizardStore.estimationParams?.optimizer ?? defaultOptimizer;
@@ -176,7 +177,7 @@
 			};
 
 			const response = await api.post<EstimateResponse>('/api/georectify/estimate', request, {
-				timeout: 300000
+				timeout: ESTIMATION_TIMEOUT_MS
 			});
 
 			simulationImage = `data:image/png;base64,${response.simulation_base64}`;

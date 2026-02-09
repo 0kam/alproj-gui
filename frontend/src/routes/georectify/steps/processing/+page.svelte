@@ -41,6 +41,7 @@
 	const defaultSimulationMinDistance = 100;
 	const fixedOutlierFilter = 'fundamental';
 	const fixedSpatialThinSelection = 'center';
+	const MATCH_TIMEOUT_MS = 600000; // 10 minutes
 
 	function getDefaultResize(method: MatchingMethod): number | 'none' {
 		return method === 'minima-roma' ? 800 : 'none';
@@ -282,7 +283,7 @@
 			};
 
 			const response = await api.post<MatchResponse>('/api/georectify/match', request, {
-				timeout: 300000
+				timeout: MATCH_TIMEOUT_MS
 			});
 
 			matchPlot = `data:image/png;base64,${response.match_plot_base64}`;
