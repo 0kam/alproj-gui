@@ -21,6 +21,7 @@
 	let projectCrs = 'EPSG:4326';
 
 	// Export job state
+	const EXPORT_TIMEOUT_MS = 600000; // 10 minutes
 	let isExporting = false;
 	let isComplete = false;
 	let hasError = false;
@@ -224,7 +225,9 @@
 
 		try {
 			// Submit export job (returns immediately with job ID)
-			const response = await api.post<ExportJobResponse>('/api/georectify/export', request);
+			const response = await api.post<ExportJobResponse>('/api/georectify/export', request, {
+				timeout: EXPORT_TIMEOUT_MS
+			});
 			jobId = response.id;
 
 			// Connect WebSocket for progress updates
