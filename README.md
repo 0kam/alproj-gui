@@ -63,7 +63,7 @@ Download the latest release from the [Releases](../../releases) page.
 ### macOS
 
 1. Download the `.dmg` file:
-   - **Apple Silicon (M1/M2/M3)**: `ALPROJ-GUI_x.x.x_aarch64.dmg`
+   - **Apple Silicon (M1/M2/M3)**: `ALPROJ.GUI_x.x.x_aarch64.dmg`
    - Intel macOS build is not provided in the current release workflow.
 
 2. Open the `.dmg` and drag the app to Applications folder
@@ -79,7 +79,7 @@ Download the latest release from the [Releases](../../releases) page.
 
 ### Windows
 
-1. Download `ALPROJ-GUI_x.x.x_x64-setup.exe` or `.msi`
+1. Download `ALPROJ.GUI_x.x.x_x64-setup.exe` or `ALPROJ.GUI_x.x.x_x64_en-US.msi`
 
 2. Run the installer
 

@@ -6,15 +6,32 @@ ALPROJ GUI is a desktop application for georectifying mountain photographs using
 
 ### System Requirements
 
-- **Operating System**: macOS 10.15+, Windows 10+, or Linux (Ubuntu 20.04+)
+- **Operating System**:
+  - macOS 10.15+ (Apple Silicon only; Intel Mac is not currently supported)
+  - Windows 10+
+  - Linux x86_64 (glibc-based distributions)
 - **Memory**: 8GB RAM minimum, 16GB recommended for large datasets
 - **Storage**: 1GB for application, plus space for data files
 
 ### Installation
 
-1. Download the appropriate installer for your platform from the releases page
-2. Run the installer and follow the on-screen instructions
-3. Launch ALPROJ GUI from your applications menu
+Download assets from the release page and install per platform:
+
+1. **macOS (Apple Silicon)**  
+   Download `ALPROJ.GUI_x.x.x_aarch64.dmg`, drag `ALPROJ GUI.app` into Applications, then launch with:
+   - Right-click app icon -> **Open** (first run)
+   - If needed, run `xattr -cr /Applications/ALPROJ\ GUI.app`
+
+2. **Windows**  
+   Download `ALPROJ.GUI_x.x.x_x64-setup.exe` or `ALPROJ.GUI_x.x.x_x64_en-US.msi`, run installer, and allow launch via SmartScreen if prompted.
+
+3. **Linux**  
+   Download `ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz`, then:
+   ```bash
+   tar -xzf ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz
+   cd alproj-gui-linux-x86_64
+   ./install.sh
+   ```
 
 ### First Run
 
