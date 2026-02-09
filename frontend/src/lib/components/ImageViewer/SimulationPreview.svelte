@@ -54,6 +54,7 @@
 	// Track previous params to detect changes
 	let prevParams: string = '';
 	let prevTargetPath: string = '';
+	const SIMULATION_TIMEOUT_MS = 300000; // 5 minutes
 
 	/**
 	 * Fetch target image thumbnail
@@ -125,7 +126,10 @@
 					max_size: maxSize,
 					surface_distance: surfaceDistance
 				},
-				{ signal: abortController.signal }
+				{
+					signal: abortController.signal,
+					timeout: SIMULATION_TIMEOUT_MS
+				}
 			);
 
 			simulationImage = `data:image/png;base64,${response.image_base64}`;
