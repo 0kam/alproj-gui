@@ -34,7 +34,7 @@ jobs:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
-            tauri_args: --target x86_64-pc-windows-msvc
+            tauri_args: --target x86_64-pc-windows-msvc --bundles nsis
             pyinstaller_mode: onedir
 
     runs-on: ${{ matrix.platform }}
@@ -541,7 +541,6 @@ jobs:
         with:
           name: alproj-gui-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/msi/*.msi
             src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.exe
           if-no-files-found: error
 
@@ -574,9 +573,15 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f | head -200
 
-      - name: Validate Linux bundle type
+      - name: Validate artifact bundle types
         run: |
           set -euo pipefail
+          msi_count=$(find artifacts -type f -name "*.msi" | wc -l | tr -d ' ')
+          if [ "$msi_count" -gt 0 ]; then
+            echo "Unexpected .msi artifact detected. Windows release must be NSIS (.exe)-only."
+            find artifacts -type f -name "*.msi"
+            exit 1
+          fi
           deb_count=$(find artifacts -type f -name "*.deb" | wc -l | tr -d ' ')
           if [ "$deb_count" -gt 0 ]; then
             echo "Unexpected .deb artifact detected. Linux release must be tar.gz-only."
@@ -627,7 +632,6 @@ jobs:
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.tar.gz
-            artifacts/**/*.msi
             artifacts/**/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

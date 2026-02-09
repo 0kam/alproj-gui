@@ -79,7 +79,7 @@ Download the latest release from the [Releases](../../releases) page.
 
 ### Windows
 
-1. Download `ALPROJ.GUI_x.x.x_x64-setup.exe` or `ALPROJ.GUI_x.x.x_x64_en-US.msi`
+1. Download `ALPROJ.GUI_x.x.x_x64-setup.exe`
 
 2. Run the installer
 

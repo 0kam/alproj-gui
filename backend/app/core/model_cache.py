@@ -10,6 +10,17 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _resolve_valid_ca_file(path_value: str | None) -> Path | None:
+    """Return a CA file path only when it points to an existing file."""
+    if not path_value:
+        return None
+    try:
+        path = Path(path_value)
+    except (TypeError, OSError):
+        return None
+    return path if path.is_file() else None
+
+
 def configure_ssl_certificates() -> Path | None:
     """Configure CA bundle environment variables for HTTPS downloads."""
     try:
@@ -19,10 +30,29 @@ def configure_ssl_certificates() -> Path | None:
         if not ca_bundle.exists():
             return None
 
-        os.environ.setdefault("SSL_CERT_FILE", str(ca_bundle))
-        os.environ.setdefault("REQUESTS_CA_BUNDLE", str(ca_bundle))
-        os.environ.setdefault("CURL_CA_BUNDLE", str(ca_bundle))
-        return ca_bundle
+        env_names = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE")
+        valid_existing: dict[str, Path] = {}
+        for env_name in env_names:
+            existing = _resolve_valid_ca_file(os.environ.get(env_name))
+            if existing is not None:
+                valid_existing[env_name] = existing
+
+        fallback_bundle = next(iter(valid_existing.values()), ca_bundle)
+
+        for env_name in env_names:
+            raw_value = os.environ.get(env_name)
+            if _resolve_valid_ca_file(raw_value) is not None:
+                continue
+            if raw_value:
+                logger.warning(
+                    "Ignoring invalid %s=%s; using %s",
+                    env_name,
+                    raw_value,
+                    fallback_bundle,
+                )
+            os.environ[env_name] = str(fallback_bundle)
+
+        return fallback_bundle
     except Exception as exc:
         logger.warning("Failed to configure SSL certificates: %s", exc)
         return None
