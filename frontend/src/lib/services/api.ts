@@ -104,7 +104,7 @@ class ApiClient {
 		this.baseUrl = config.baseUrl || DEFAULT_BASE_URL;
 		this.defaultTimeout = config.defaultTimeout || DEFAULT_TIMEOUT;
 		this.defaultHeaders = {
-			'Content-Type': 'application/json',
+			Accept: 'application/json',
 			...config.defaultHeaders
 		};
 	}
@@ -145,7 +145,18 @@ class ApiClient {
 
 		// Remove Content-Type for FormData
 		if (body instanceof FormData) {
-			delete headers['Content-Type'];
+			Object.keys(headers).forEach((key) => {
+				if (key.toLowerCase() === 'content-type') {
+					delete headers[key];
+				}
+			});
+		} else if (body !== undefined) {
+			const hasContentType = Object.keys(headers).some(
+				(key) => key.toLowerCase() === 'content-type'
+			);
+			if (!hasContentType) {
+				headers['Content-Type'] = 'application/json';
+			}
 		}
 
 		try {

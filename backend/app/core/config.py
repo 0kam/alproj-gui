@@ -31,7 +31,13 @@ class Settings(BaseSettings):
 
     # CORS settings
     cors_origins: list[str] = Field(
-        default=["http://localhost:1420", "http://localhost:5173", "tauri://localhost"],
+        default=[
+            "http://localhost:1420",
+            "http://localhost:5173",
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+        ],
         description="Allowed CORS origins",
     )
 
