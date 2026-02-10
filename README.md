@@ -14,6 +14,9 @@ ALPROJ GUI provides a wizard-style interface for transforming mountain photograp
 3. **Processing** - Automated image matching and camera parameter optimization
 4. **Export** - Generating GeoTIFF files with embedded coordinate information
 
+The core georectification processing is powered by [`alproj`](https://github.com/0kam/alproj), a Python package developed by me.  
+Documentation: [alproj.readthedocs.io](https://alproj.readthedocs.io/en/latest/)
+
 ### 概要
 
 ALPROJ GUI は、山岳写真を地理参照画像へ変換するためのウィザード形式アプリです。主な流れは次のとおりです。
@@ -22,6 +25,9 @@ ALPROJ GUI は、山岳写真を地理参照画像へ変換するためのウィ
 2. **カメラパラメータ設定** - 地図上で位置・向き・画角を設定する
 3. **処理** - 画像マッチングとカメラパラメータ最適化を実行する
 4. **出力** - 座標情報付きGeoTIFFを生成する
+
+コアとなる幾何補正処理には、私が開発している Python パッケージ [`alproj`](https://github.com/0kam/alproj) を利用しています。  
+ドキュメント: [alproj.readthedocs.io](https://alproj.readthedocs.io/ja/latest/)
 
 ## 使い方
 
