@@ -27,4 +27,4 @@ When running in debug mode, API documentation is available at:
 
 ## License
 
-MIT
+GNU General Public License v3.0 (GPL-3.0)

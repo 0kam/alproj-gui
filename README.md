@@ -1,6 +1,9 @@
 # ALPROJ GUI
 
-A desktop application for georectifying mountain photographs using Digital Surface Models (DSM) and aerial imagery. It produces georeferenced GeoTIFF outputs suitable for GIS analysis.
+<img src="screenshots/readme/app-icon.png" alt="ALPROJ GUI icon" width="96" />
+
+A desktop application for georectifying mountain photographs using Digital Surface Models (DSM) and aerial imagery. It produces georeferenced GeoTIFF outputs suitable for GIS analysis.  
+DSM（数値表層モデル）と空中写真を使って山岳写真を幾何補正し、GISで利用できる位置情報付きGeoTIFFを作成するデスクトップアプリです。
 
 ## Overview
 
@@ -10,6 +13,136 @@ ALPROJ GUI provides a wizard-style interface for transforming mountain photograp
 2. **Camera Parameter Setup** - Interactive map-based configuration of camera position, direction, and field of view
 3. **Processing** - Automated image matching and camera parameter optimization
 4. **Export** - Generating GeoTIFF files with embedded coordinate information
+
+### 概要
+
+ALPROJ GUI は、山岳写真を地理参照画像へ変換するためのウィザード形式アプリです。主な流れは次のとおりです。
+
+1. **データ入力** - DSM、オルソ画像、対象写真を読み込む
+2. **カメラパラメータ設定** - 地図上で位置・向き・画角を設定する
+3. **処理** - 画像マッチングとカメラパラメータ最適化を実行する
+4. **出力** - 座標情報付きGeoTIFFを生成する
+
+## 使い方
+
+### 1. データ入力
+
+DSM、オルソ画像、対象となる景観写真を読み込みます。
+
+![データ入力画面（2026-02-10 13:59:30）](screenshots/readme/howto-step1-data-input.png)
+
+### 2. カメラ設定とシミュレーション確認
+
+地図上でカメラ位置・向き、画角を設定します。続いてシミュレーション画像を生成し、対象画像との見え方を確認します（ある程度近くなるまで調整してください）。
+
+![カメラ設定（地図, 2026-02-10 13:59:13）](screenshots/readme/howto-step2-data-camera-setup.png)
+![シミュレーション比較（2026-02-10 13:59:52）](screenshots/readme/howto-step2-simulation-preview.png)
+
+### 3. 画像マッチング
+
+手法と閾値などを設定して景観写真とシミュレーション画像の間で実行し、対応点を取得します。
+
+![画像マッチング結果（2026-02-10 14:00:07）](screenshots/readme/howto-step3-matching-result-clear.png)
+
+### 4. カメラパラメータ推定
+
+取得された対応点をもとに、カメラパラメータを最適化します。
+最適化後のパラメータで作成したシミュレーション画像と景観写真を重ね、ずれがないことを確認します
+
+![カメラパラメータ推定（2026-02-10 14:00:14）](screenshots/readme/howto-step4-camera-estimation.png)
+![オーバーレイ確認（2026-02-10 14:01:18）](screenshots/readme/howto-step4-overlay.png)
+
+### 5. GeoTIFF出力
+
+出力対象・解像度・座標系などを設定して GeoTIFF を生成します。生成後は地図プレビューで位置合わせ結果を確認できます。
+
+定点カメラなど同一条件で撮影された写真がある場合は、推定したカメラパラメータを用いたオルソ化を複数の画像に対して適用することも可能です。
+
+![GeoTIFF出力設定（2026-02-10 14:00:23）](screenshots/readme/howto-step5-geotiff-export.png)
+![GeoTIFFマッププレビュー（2026-02-10 14:00:31）](screenshots/readme/howto-step5-geotiff-preview.png)
+
+### 6. プロジェクト保存
+
+右上の保存ボタンから `.alproj` を保存できます。作業を再開する場合は保存済みプロジェクトを開いてください。
+
+## Installation
+
+Download the latest release from the [Releases](../../releases) page.
+
+### macOS
+
+1. Download the `.dmg` file:
+   - **Apple Silicon (M1/M2/M3)**: `ALPROJ.GUI_x.x.x_aarch64.dmg`
+   - Intel macOS build is not provided in the current release workflow.
+
+2. Open the `.dmg` and drag the app to Applications folder
+
+3. **First launch** (app is not code-signed):
+   - Right-click the app → Select **Open**
+   - Click **Open** in the dialog
+
+   Or via Terminal:
+   ```bash
+   xattr -cr /Applications/ALPROJ\ GUI.app
+   ```
+
+### Windows
+
+1. Download `ALPROJ.GUI_x.x.x_x64-setup.exe`
+
+2. Run the installer
+
+3. **First launch** (app is not code-signed):
+   - If SmartScreen appears, click **More info**
+   - Click **Run anyway**
+
+### Linux
+
+1. Download `ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz`
+
+2. Extract and install:
+   ```bash
+   tar -xzf ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz
+   cd alproj-gui-linux-x86_64
+   ./install.sh
+   ```
+
+### インストール手順
+
+最新版は [Releases](../../releases) から取得してください。
+
+#### macOS
+
+1. `.dmg` をダウンロード
+   - **Apple Silicon (M1/M2/M3)**: `ALPROJ.GUI_x.x.x_aarch64.dmg`
+   - 現在のリリースワークフローでは Intel Mac 向けビルドは提供していません。
+2. `.dmg` を開き、アプリを `Applications` にドラッグ
+3. 初回起動（未署名アプリ）:
+   - アプリを右クリックして **開く**
+   - ダイアログで **開く** を選択
+   - 必要に応じて以下を実行:
+   ```bash
+   xattr -cr /Applications/ALPROJ\ GUI.app
+   ```
+
+#### Windows
+
+1. `ALPROJ.GUI_x.x.x_x64-setup.exe` をダウンロード
+2. インストーラーを実行
+3. 初回起動時に SmartScreen が表示されたら **詳細情報** → **実行**
+
+#### Linux
+
+1. `ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz` をダウンロード
+2. 展開してインストール:
+   ```bash
+   tar -xzf ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz
+   cd alproj-gui-linux-x86_64
+   ./install.sh
+   ```
+
+---
+
 
 ## Tech Stack
 
@@ -55,50 +188,6 @@ alproj_gui/
 ├── devel_data/        # Sample data for development
 └── specs/             # Feature specifications
 ```
-
-## Installation
-
-Download the latest release from the [Releases](../../releases) page.
-
-### macOS
-
-1. Download the `.dmg` file:
-   - **Apple Silicon (M1/M2/M3)**: `ALPROJ.GUI_x.x.x_aarch64.dmg`
-   - Intel macOS build is not provided in the current release workflow.
-
-2. Open the `.dmg` and drag the app to Applications folder
-
-3. **First launch** (app is not code-signed):
-   - Right-click the app → Select **Open**
-   - Click **Open** in the dialog
-
-   Or via Terminal:
-   ```bash
-   xattr -cr /Applications/ALPROJ\ GUI.app
-   ```
-
-### Windows
-
-1. Download `ALPROJ.GUI_x.x.x_x64-setup.exe`
-
-2. Run the installer
-
-3. **First launch** (app is not code-signed):
-   - If SmartScreen appears, click **More info**
-   - Click **Run anyway**
-
-### Linux
-
-1. Download `ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz`
-
-2. Extract and install:
-   ```bash
-   tar -xzf ALPROJ.GUI_x.x.x_linux_x86_64.tar.gz
-   cd alproj-gui-linux-x86_64
-   ./install.sh
-   ```
-
----
 
 ## Development Setup
 
@@ -190,4 +279,4 @@ cd frontend && npm run test
 
 ## License
 
-MIT
+GNU General Public License v3.0 (GPL-3.0)
