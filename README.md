@@ -2,8 +2,9 @@
 
 <img src="screenshots/readme/app-icon.png" alt="ALPROJ GUI icon" width="96" />
 
-A desktop application for georectifying mountain photographs using Digital Surface Models (DSM) and aerial imagery. It produces georeferenced GeoTIFF outputs suitable for GIS analysis.  
-DSM（数値表層モデル）と空中写真を使って山岳写真を幾何補正し、GISで利用できる位置情報付きGeoTIFFを作成するデスクトップアプリです。
+A desktop application for georectifying ground-based mountain photographs using Digital Surface Models (DSM) and aerial imagery. It produces georeferenced GeoTIFF outputs (ortho image) suitable for GIS analysis.  
+
+DSM（数値表層モデル）と航空写真を使って地上撮影の山岳写真を幾何補正し、GISで利用できる位置情報付きGeoTIFF（オルソ画像）を作成するデスクトップアプリです。
 
 ## Overview
 
@@ -19,7 +20,7 @@ Documentation: [alproj.readthedocs.io](https://alproj.readthedocs.io/en/latest/)
 
 ### 概要
 
-ALPROJ GUI は、山岳写真を地理参照画像へ変換するためのウィザード形式アプリです。主な流れは次のとおりです。
+ALPROJ GUI は、山岳写真をオルソ化するためのウィザード形式アプリです。主な流れは次のとおりです。
 
 1. **データ入力** - DSM、オルソ画像、対象写真を読み込む
 2. **カメラパラメータ設定** - 地図上で位置・向き・画角を設定する
@@ -29,11 +30,25 @@ ALPROJ GUI は、山岳写真を地理参照画像へ変換するためのウィ
 コアとなる幾何補正処理には、私が開発している Python パッケージ [`alproj`](https://github.com/0kam/alproj) を利用しています。  
 ドキュメント: [alproj.readthedocs.io](https://alproj.readthedocs.io/ja/latest/)
 
+## 動作要件
+
+- 最低要件:
+  - RAM 16GB 以上
+- 快適な利用の目安:
+  - RAM 32GB 以上
+  - 高性能な CPU
+    - 開発環境: AMD Ryzen 5 8600G、Apple M4 pro
+    - Intel の場合: 第13世代 Core i5 以上を推奨
+
+性能の低い CPU を使用している場合、画像マッチングやカメラパラメータ最適化がタイムアウトすることがあります。
+
 ## 使い方
 
 ### 1. データ入力
 
-DSM、オルソ画像、対象となる景観写真を読み込みます。
+DSM、オルソ化された航空写真/衛星画像、対象となる景観写真を読み込みます。
+CRSは必ずm単位のもの（UTM推奨）を使い、DSMと航空写真で揃うようにしてください。
+航空写真は高解像度の衛星画像でも代用可能です。景観写真と近い時期のものを用いることをお勧めします。
 
 ![データ入力画面（2026-02-10 13:59:30）](screenshots/readme/howto-step1-data-input.png)
 
