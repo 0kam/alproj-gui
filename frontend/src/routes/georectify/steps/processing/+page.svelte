@@ -41,7 +41,7 @@
 	const defaultSimulationMinDistance = 100;
 	const fixedOutlierFilter = 'fundamental';
 	const fixedSpatialThinSelection = 'center';
-	const MATCH_TIMEOUT_MS = 600000; // 10 minutes
+	const MATCH_TIMEOUT_MS = 1200000; // 20 minutes
 
 	function getDefaultResize(method: MatchingMethod): number | 'none' {
 		return method === 'minima-roma' ? 800 : 'none';

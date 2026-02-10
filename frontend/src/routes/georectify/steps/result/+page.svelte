@@ -28,7 +28,7 @@
 	const defaultOptimizeOrientation = true;
 	const defaultOptimizeFov = true;
 	const defaultOptimizeDistortion = true;
-	const ESTIMATION_TIMEOUT_MS = 600000; // 10 minutes
+	const ESTIMATION_TIMEOUT_MS = 1800000; // 30 minutes
 
 	// Initialize from store or use defaults
 	let optimizer: OptimizerType = $wizardStore.estimationParams?.optimizer ?? defaultOptimizer;

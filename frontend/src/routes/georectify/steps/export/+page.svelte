@@ -21,7 +21,7 @@
 	let projectCrs = 'EPSG:4326';
 
 	// Export job state
-	const EXPORT_TIMEOUT_MS = 600000; // 10 minutes
+	const EXPORT_TIMEOUT_MS = 1200000; // 20 minutes
 	let isExporting = false;
 	let isComplete = false;
 	let hasError = false;
