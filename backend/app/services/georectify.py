@@ -13,7 +13,7 @@ import asyncio
 import builtins
 import logging
 import os
-import re
+
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -173,75 +173,6 @@ def create_geo_object(
         ) from e
 
 
-def create_geo_object_with_auto_adjust(
-    dsm_path: str,
-    ortho_path: str,
-    camera_x: float,
-    camera_y: float,
-    distance: float = 3000.0,
-    resolution: float = 1.0,
-    crs: str | None = None,
-    max_retries: int = 3,
-) -> tuple[GeoObject, float]:
-    """Create a GeoObject with automatic distance adjustment if too large.
-
-    If the requested distance exceeds the DSM/orthophoto bounds, automatically
-    reduces the distance and retries up to max_retries times.
-
-    Args:
-        dsm_path: Path to the Digital Surface Model (GeoTIFF).
-        ortho_path: Path to the orthophoto (GeoTIFF).
-        camera_x: Camera X coordinate in the projected CRS.
-        camera_y: Camera Y coordinate in the projected CRS.
-        distance: Initial distance from camera to surface edge (meters).
-        resolution: Surface mesh resolution (meters).
-        crs: Optional CRS override. If None, uses DSM's CRS.
-        max_retries: Maximum number of retry attempts with reduced distance.
-
-    Returns:
-        Tuple of (GeoObject, actual_distance_used).
-
-    Raises:
-        FileError: If files cannot be read.
-        ProcessingError: If surface extraction fails after all retries.
-        MemoryError: If out of memory during processing.
-    """
-    current_distance = distance
-
-    for attempt in range(max_retries):
-        try:
-            geo = create_geo_object(
-                dsm_path=dsm_path,
-                ortho_path=ortho_path,
-                camera_x=camera_x,
-                camera_y=camera_y,
-                crs=crs,
-                distance=current_distance,
-                resolution=resolution,
-            )
-            if current_distance != distance:
-                logger.info(
-                    f"Successfully created GeoObject with adjusted distance: "
-                    f"{distance}m -> {current_distance:.1f}m"
-                )
-            return geo, current_distance
-        except ProcessingError as e:
-            # Check if error is about distance being too large
-            error_msg = str(e)
-            match = re.search(r"less than (\d+\.?\d*)", error_msg)
-            if match and attempt < max_retries - 1:
-                max_allowed = float(match.group(1))
-                # Use 90% of max allowed distance for safety margin
-                current_distance = max_allowed * 0.9
-                logger.warning(
-                    f"Surface distance {distance}m too large, "
-                    f"retrying with {current_distance:.1f}m (attempt {attempt + 2}/{max_retries})"
-                )
-            else:
-                raise
-
-    # Should not reach here, but just in case
-    raise RuntimeError("Failed to create GeoObject after multiple attempts")
 
 
 def generate_simulation(
@@ -543,9 +474,8 @@ async def run_estimation(
         params_dict = _camera_params_to_dict(camera_params, target_w, target_h)
         log.append(f"Initial params: x={params_dict['x']}, y={params_dict['y']}, z={params_dict['z']}")
 
-        # Create GeoObject with auto-adjustment if distance is too large
         log.append("Creating GeoObject from DSM/orthophoto...")
-        geo, actual_distance = create_geo_object_with_auto_adjust(
+        geo = create_geo_object(
             dsm_path=dsm_path,
             ortho_path=ortho_path,
             camera_x=camera_params.x,
@@ -553,8 +483,6 @@ async def run_estimation(
             distance=surface_distance,
             resolution=1.0,  # Full resolution for accurate matching
         )
-        if actual_distance != surface_distance:
-            log.append(f"Surface distance adjusted: {surface_distance}m -> {actual_distance:.1f}m")
 
         # Generate initial simulation at full size
         log.append("Generating initial simulation image...")
@@ -613,7 +541,6 @@ async def run_estimation(
                         and meta.get("spatial_thin_grid") == spatial_thin_grid
                         and meta.get("spatial_thin_selection") == spatial_thin_selection
                         and meta.get("surface_distance") == surface_distance
-                        and meta.get("actual_distance") == actual_distance
                         and meta.get("simulation_min_distance") == simulation_min_distance
                         and meta.get("target_w") == target_w
                         and meta.get("target_h") == target_h
@@ -946,8 +873,7 @@ async def generate_simulation_image(
             scale = min(max_size / w, max_size / h, 1.0)
             out_w, out_h = int(w * scale), int(h * scale)
 
-            # Create GeoObject with auto-adjustment if distance is too large
-            geo, _ = create_geo_object_with_auto_adjust(
+            geo = create_geo_object(
                 dsm_path=dsm_path,
                 ortho_path=ortho_path,
                 camera_x=camera_params.x,
@@ -1305,7 +1231,7 @@ async def run_export_job(
         loop = asyncio.get_running_loop()
 
         def _create_geo() -> GeoObject:
-            geo, _ = create_geo_object_with_auto_adjust(
+            return create_geo_object(
                 dsm_path=dsm_path,
                 ortho_path=ortho_path,
                 camera_x=camera_params.x,
@@ -1313,7 +1239,6 @@ async def run_export_job(
                 distance=surface_distance,
                 resolution=resolution,
             )
-            return geo
 
         geo = await loop.run_in_executor(None, _create_geo)
         result["log"].append("Surface mesh created")

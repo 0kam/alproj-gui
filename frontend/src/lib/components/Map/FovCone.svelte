@@ -257,48 +257,52 @@
 	function initializeCone(): void {
 		if (!map) return;
 
-		// Check if map is loaded
-		if (!map.isStyleLoaded()) {
-			map.once('load', initializeCone);
-			return;
-		}
+		// Adding sources/layers only requires the style to be parsed,
+		// not all tiles loaded. Use try-catch instead of isStyleLoaded()
+		// which is overly conservative (checks tile loading too).
+		// Retry with 'idle' event instead of 'load' because 'load' only
+		// fires once on initial map load and won't fire again.
+		try {
+			// Add source
+			if (!map.getSource(sourceId)) {
+				map.addSource(sourceId, {
+					type: 'geojson',
+					data: generateConeGeometry()
+				});
+			}
 
-		// Add source
-		if (!map.getSource(sourceId)) {
-			map.addSource(sourceId, {
-				type: 'geojson',
-				data: generateConeGeometry()
-			});
-		}
+			// Add fill layer
+			if (!map.getLayer(fillLayerId)) {
+				map.addLayer({
+					id: fillLayerId,
+					type: 'fill',
+					source: sourceId,
+					paint: {
+						'fill-color': fillColor,
+						'fill-opacity': 1
+					}
+				});
+			}
 
-		// Add fill layer
-		if (!map.getLayer(fillLayerId)) {
-			map.addLayer({
-				id: fillLayerId,
-				type: 'fill',
-				source: sourceId,
-				paint: {
-					'fill-color': fillColor,
-					'fill-opacity': 1
-				}
-			});
-		}
+			// Add line layer for outline
+			if (!map.getLayer(lineLayerId)) {
+				map.addLayer({
+					id: lineLayerId,
+					type: 'line',
+					source: sourceId,
+					paint: {
+						'line-color': strokeColor,
+						'line-width': 2,
+						'line-opacity': 0.8
+					}
+				});
+			}
 
-		// Add line layer for outline
-		if (!map.getLayer(lineLayerId)) {
-			map.addLayer({
-				id: lineLayerId,
-				type: 'line',
-				source: sourceId,
-				paint: {
-					'line-color': strokeColor,
-					'line-width': 2,
-					'line-opacity': 0.8
-				}
-			});
+			isInitialized = true;
+		} catch {
+			// Style not yet ready, retry when map becomes idle
+			map.once('idle', initializeCone);
 		}
-
-		isInitialized = true;
 	}
 
 	/**

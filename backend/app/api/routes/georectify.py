@@ -175,7 +175,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
     import cv2
 
     from app.services.georectify import (
-        create_geo_object_with_auto_adjust,
+        create_geo_object,
         generate_simulation,
         _camera_params_to_dict,
     )
@@ -195,8 +195,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
         log.append(f"Target image size: {target_w}x{target_h}")
         log.append("Creating GeoObject...")
 
-        # Create GeoObject with auto-adjustment if distance is too large
-        geo, actual_distance = create_geo_object_with_auto_adjust(
+        geo = create_geo_object(
             dsm_path=request.dsm_path,
             ortho_path=request.ortho_path,
             camera_x=request.camera_params.x,
@@ -204,10 +203,6 @@ async def match_images(request: MatchRequest) -> MatchResponse:
             distance=request.surface_distance,
             resolution=1.0,  # Use full resolution for matching
         )
-        if actual_distance != request.surface_distance:
-            log.append(
-                f"Surface distance adjusted: {request.surface_distance}m -> {actual_distance:.1f}m"
-            )
 
         log.append("Generating full-size simulation image...")
 
@@ -276,7 +271,6 @@ async def match_images(request: MatchRequest) -> MatchResponse:
                         "spatial_thin_grid": request.spatial_thin_grid,
                         "spatial_thin_selection": request.spatial_thin_selection,
                         "surface_distance": request.surface_distance,
-                        "actual_distance": actual_distance,
                         "simulation_min_distance": request.simulation_min_distance,
                         "target_w": target_w,
                         "target_h": target_h,
