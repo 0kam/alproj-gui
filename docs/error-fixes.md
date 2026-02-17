@@ -269,4 +269,32 @@ grep -r "ufm" --include="*.ts" --include="*.svelte" --include="*.py"
 
 ---
 
+### [API] Windows環境で日本語ファイルパスの画像読み込み失敗
+
+**日付:** 2026-02-17
+**症状:** ファイルパスに日本語（非ASCII文字）が含まれる場合、`cv2.imread()` が `None` を返し「Cannot read target image」エラーになる
+**原因:** OpenCV の `cv2.imread()` は Windows 上でパス文字列をシステムのデフォルトコードページ（CP1252/Shift-JIS等）で変換するため、非ASCII文字が化ける（OpenCV既知の問題）
+**解決策:** `imread_unicode()` ヘルパー（`pathlib.Path.read_bytes()` + `cv2.imdecode()`）を作成し、直接 `cv2.imread()` を呼ぶ箇所を置換。外部ライブラリが内部で `cv2.imread()` を呼ぶ場合は `safe_image_path()` コンテキストマネージャで一時コピーを渡す。
+
+### Before
+```python
+target_img = cv2.imread(target_image_path)
+match, _ = image_match(target_image_path, str(sim_path), **kwargs)
+```
+
+### After
+```python
+from app.utils.image import imread_unicode, safe_image_path
+
+target_img = imread_unicode(target_image_path)
+
+with safe_image_path(target_image_path) as safe_target:
+    match, _ = image_match(safe_target, str(sim_path), **kwargs)
+```
+
+**教訓:** `cv2.imread()` / `cv2.imwrite()` はクロスプラットフォームで非ASCIIパスが安全ではない。ファイルI/Oには `pathlib` ベースのバッファ読み書き + `cv2.imdecode()` / `cv2.imencode()` を使う。外部ライブラリに渡すパスが非ASCII含む場合は一時コピーで対応する。
+**関連ファイル:** `backend/app/utils/image.py`, `backend/app/services/georectify.py`, `backend/app/api/routes/georectify.py`
+
+---
+
 <!-- 今後のエラー修正事例をここに追加していく -->

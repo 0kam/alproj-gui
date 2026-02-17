@@ -178,7 +178,7 @@ imm = [
 
 [[package]]
 name = "alproj-gui-backend"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "alproj", extra = ["imm"] },

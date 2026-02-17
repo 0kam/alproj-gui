@@ -148,6 +148,7 @@
 		<div class="header-content">
 			<a href="/" class="app-logo" on:click|preventDefault={handleHomeClick}>
 				<h1 class="app-title">{t('app.name')}</h1>
+				<span class="app-version">v{__APP_VERSION__}</span>
 			</a>
 			<nav class="app-nav">
 				<!-- Language switcher -->
@@ -247,6 +248,14 @@
 		margin: 0;
 		letter-spacing: 0.03em;
 		color: var(--brand-700);
+	}
+
+	.app-version {
+		font-size: 0.7rem;
+		font-weight: 400;
+		color: var(--ink-400, #9ca3af);
+		margin-left: 0.375rem;
+		letter-spacing: 0.01em;
 	}
 
 	.app-nav {

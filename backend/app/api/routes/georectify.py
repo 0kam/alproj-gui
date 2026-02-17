@@ -26,6 +26,7 @@ from app.api.deps import ProcessingError, ValidationError, get_job_queue_dep
 from app.core.config import settings
 from app.core.jobs import Job, JobProgress, JobQueue
 from app.core.model_cache import configure_imm_runtime
+from app.utils.image import imread_unicode, safe_image_path
 from app.schemas.camera import SimulationRequest, SimulationResponse
 from app.schemas.georectify import (
     EstimateRequest,
@@ -187,7 +188,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
 
     try:
         # Get target image dimensions for full-size simulation
-        target_img = cv2.imread(request.target_image_path)
+        target_img = imread_unicode(request.target_image_path)
         if target_img is None:
             raise ValidationError(f"Cannot read target image: {request.target_image_path}")
         target_h, target_w = target_img.shape[:2]
@@ -250,11 +251,12 @@ async def match_images(request: MatchRequest) -> MatchResponse:
             if request.spatial_thin_selection:
                 kwargs["spatial_thin_selection"] = request.spatial_thin_selection
 
-            match, plot = image_match(
-                request.target_image_path,
-                str(sim_path),
-                **kwargs,
-            )
+            with safe_image_path(request.target_image_path) as safe_target:
+                match, plot = image_match(
+                    safe_target,
+                    str(sim_path),
+                    **kwargs,
+                )
             match_count = len(match) if hasattr(match, "__len__") else None
             log.append(f"Found {match_count} matching points")
             plot_bytes = _encode_plot(plot)

@@ -24,6 +24,7 @@ import rasterio
 from app.api.deps import FileError, MatchingError, MemoryError, ProcessingError
 from app.core.model_cache import configure_imm_runtime
 from app.schemas import GCP, CameraParamsValues, ProcessMetrics
+from app.utils.image import imread_unicode, safe_image_path
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -464,7 +465,7 @@ async def run_estimation(
             )
 
         # Get target image dimensions
-        target_img = cv2.imread(target_image_path)
+        target_img = imread_unicode(target_image_path)
         if target_img is None:
             raise ValueError(f"Cannot read target image: {target_image_path}")
         target_h, target_w = target_img.shape[:2]
@@ -553,7 +554,8 @@ async def run_estimation(
                     log.append("Cached matches not found or expired; re-running image matching")
 
             if match is None:
-                match, _ = image_match(target_image_path, str(sim_path), **match_kwargs)
+                with safe_image_path(target_image_path) as safe_target:
+                    match, _ = image_match(safe_target, str(sim_path), **match_kwargs)
             log.append(f"Found {len(match)} matching points")
 
             if len(match) < 4:
@@ -673,7 +675,8 @@ async def run_estimation(
                     match_kwargs2["spatial_thin_grid"] = max(spatial_thin_grid // 2, 10)
 
                 try:
-                    match2, _ = image_match(target_image_path, str(sim2_path), **match_kwargs2)
+                    with safe_image_path(target_image_path) as safe_target:
+                        match2, _ = image_match(safe_target, str(sim2_path), **match_kwargs2)
                     log.append(f"Phase 2 matching: {len(match2)} points")
 
                     gcps2 = set_gcp(match2, df2)
@@ -863,7 +866,7 @@ async def generate_simulation_image(
             import cv2
 
             # Get target image dimensions
-            target_img = cv2.imread(target_image_path)
+            target_img = imread_unicode(target_image_path)
             if target_img is None:
                 raise ValueError(f"Cannot read target image: {target_image_path}")
 
@@ -1283,9 +1286,7 @@ async def run_export_job(
             )
 
             def _load_image(target_path: str = current_target_path) -> tuple[np.ndarray, int, int]:
-                import cv2
-
-                target_img = cv2.imread(target_path)
+                target_img = imread_unicode(target_path)
                 if target_img is None:
                     raise ValueError(f"Cannot read target image: {target_path}")
                 target_h, target_w = target_img.shape[:2]
