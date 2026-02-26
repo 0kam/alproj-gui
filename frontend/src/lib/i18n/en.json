@@ -94,7 +94,10 @@
     "positionLabel": "Position:",
     "gsiMap": "GSI Map",
     "gsiLabel": "GSI",
-    "aerialPhoto": "Aerial Photo"
+    "aerialPhoto": "Aerial Photo",
+    "model": "Camera Model",
+    "pinhole": "Pinhole",
+    "fisheye": "Fisheye"
   },
   "rendering": {
     "title": "Rendering Settings",
@@ -148,12 +151,16 @@
       "label": "SuperPoint-LightGlue (Default)",
       "description": "Deep learning-based matcher (recommended). Robust to viewpoint and resolution changes."
     },
-    "minima": {
-      "label": "MINIMA-ROMA",
-      "description": "High accuracy but heavy. Requires 16GB+ RAM, processing takes several minutes."
+    "matchanythingRoma": {
+      "label": "MatchAnything-RoMA",
+      "description": "Dense matcher combining MatchAnything with RoMA. Robust and accurate, recommended for high-quality results."
+    },
+    "matchanythingEloftr": {
+      "label": "MatchAnything-ELoFTR",
+      "description": "Dense matcher combining MatchAnything with ELoFTR. Good balance of speed and accuracy."
     },
     "akazeSiftNote": "AKAZE/SIFT may fail to detect correspondences when there is a large spatial resolution difference between the aerial and target images.",
-    "minimaNote": "MINIMA-ROMA is robust and produces dense correspondences but is heavy, requires 16GB+ RAM, and may take several minutes. Image resizing is recommended when using MINIMA-ROMA."
+    "matchanythingNote": "MatchAnything methods are robust and produce dense correspondences but are heavy, may require 16GB+ RAM, and may take several minutes. Image resizing is recommended."
   },
   "result": {
     "title": "Results",

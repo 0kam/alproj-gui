@@ -127,6 +127,11 @@ export interface ExifData {
 // === Camera Parameters ===
 
 /**
+ * Camera model type
+ */
+export type CameraModel = 'pinhole' | 'fisheye';
+
+/**
  * Camera parameters container (initial and optimized)
  */
 export interface CameraParams {
@@ -165,6 +170,8 @@ export interface CameraParamsValues {
 	// Principal point (optional)
 	cx?: number;
 	cy?: number;
+	// Camera model
+	model?: CameraModel;
 }
 
 /**
@@ -191,7 +198,8 @@ export const DEFAULT_CAMERA_PARAMS: CameraParamsValues = {
 	s1: 0,
 	s2: 0,
 	s3: 0,
-	s4: 0
+	s4: 0,
+	model: 'pinhole' as CameraModel
 };
 
 // === Process Result ===
@@ -261,8 +269,8 @@ export type MatchingMethod =
 	| 'akaze'
 	| 'sift'
 	| 'superpoint-lightglue'
-	| 'minima-roma'
-	| 'tiny-roma';
+	| 'matchanything-roma'
+	| 'matchanything-eloftr';
 
 /**
  * Optimizer options

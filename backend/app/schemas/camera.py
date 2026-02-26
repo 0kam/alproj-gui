@@ -45,6 +45,9 @@ class CameraParamsValues(BaseModel):
     cx: float | None = Field(default=None, description="Principal point X offset from center")
     cy: float | None = Field(default=None, description="Principal point Y offset from center")
 
+    # Camera model
+    model: str = Field(default="pinhole", pattern="^(pinhole|fisheye)$", description="Camera model type")
+
 
 class CameraParams(BaseModel):
     """Container for initial and optimized camera parameters."""

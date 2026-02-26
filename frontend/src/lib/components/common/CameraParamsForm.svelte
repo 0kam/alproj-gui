@@ -73,9 +73,36 @@
 		return suggestedParams[field] !== localValue[field];
 	}
 
+	/**
+	 * Handle camera model change
+	 */
+	function handleModelChange(value: string): void {
+		localValue = { ...localValue, model: value === 'fisheye' ? 'fisheye' : 'pinhole' };
+		dispatch('change', localValue);
+	}
+
 </script>
 
 <div class="camera-params-form">
+	<!-- Camera Model Selector -->
+	<fieldset class="param-section">
+		<legend class="section-title">{t('camera.model')}</legend>
+		<div class="param-grid">
+			<div class="param-field" style="grid-column: 1 / -1;">
+				<select
+					id="camera-model"
+					value={localValue.model ?? 'pinhole'}
+					on:change={(e) => handleModelChange(e.currentTarget.value)}
+					class="model-select"
+					{disabled}
+				>
+					<option value="pinhole">{t('camera.pinhole')}</option>
+					<option value="fisheye">{t('camera.fisheye')}</option>
+				</select>
+			</div>
+		</div>
+	</fieldset>
+
 	<!-- Suggested params banner -->
 	{#if suggestedParams && Object.keys(suggestedParams).length > 0}
 		<div class="suggested-banner">
@@ -480,6 +507,20 @@
 		color: #16a34a;
 		font-weight: 500;
 		margin-top: 0.125rem;
+	}
+
+	.model-select {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid #d1d5db;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		background-color: white;
+	}
+	.model-select:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-primary-500, #6366f1);
+		border-color: var(--color-primary-500, #6366f1);
 	}
 
 </style>

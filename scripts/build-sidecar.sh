@@ -84,21 +84,21 @@ else
     echo "Models already downloaded, skipping..."
 fi
 
-# Copy models to imm package's model_weights directory
-# imm expects models in imm/model_weights, not a separate models directory
-echo "Copying models to imm package model_weights..."
-IMM_MODEL_WEIGHTS=$(uv run python -c "import imm; import os; print(os.path.join(os.path.dirname(imm.__file__), 'model_weights'))")
-echo "IMM model_weights dir: $IMM_MODEL_WEIGHTS"
+# Copy models to vismatch package's model_weights directory
+# vismatch expects models in vismatch/model_weights, not a separate models directory
+echo "Copying models to vismatch package model_weights..."
+VISMATCH_MODEL_WEIGHTS=$(uv run python -c "import vismatch; import os; print(os.path.join(os.path.dirname(vismatch.__file__), 'model_weights'))")
+echo "VISMATCH model_weights dir: $VISMATCH_MODEL_WEIGHTS"
 
 # Copy HuggingFace models
 if [ -d "$BACKEND_DIR/models/huggingface" ]; then
-    cp -r "$BACKEND_DIR/models/huggingface" "$IMM_MODEL_WEIGHTS/"
+    cp -r "$BACKEND_DIR/models/huggingface" "$VISMATCH_MODEL_WEIGHTS/"
     echo "  Copied huggingface models"
 fi
 
 # Copy Torch models
 if [ -d "$BACKEND_DIR/models/torch" ]; then
-    cp -r "$BACKEND_DIR/models/torch" "$IMM_MODEL_WEIGHTS/"
+    cp -r "$BACKEND_DIR/models/torch" "$VISMATCH_MODEL_WEIGHTS/"
     echo "  Copied torch models"
 fi
 
@@ -159,8 +159,8 @@ uv run pyinstaller \
     --collect-submodules "rasterio" \
     --hidden-import "numpy" \
     --hidden-import "cv2" \
-    --hidden-import "imm" \
-    --collect-all "imm" \
+    --hidden-import "vismatch" \
+    --collect-all "vismatch" \
     --hidden-import "torch" \
     --hidden-import "torchvision" \
     --hidden-import "kornia" \

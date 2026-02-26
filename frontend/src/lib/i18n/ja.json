@@ -94,7 +94,10 @@
     "positionLabel": "位置:",
     "gsiMap": "国土地理院地図",
     "gsiLabel": "地理院",
-    "aerialPhoto": "航空写真"
+    "aerialPhoto": "航空写真",
+    "model": "カメラモデル",
+    "pinhole": "ピンホール",
+    "fisheye": "魚眼"
   },
   "rendering": {
     "title": "レンダリング設定",
@@ -148,12 +151,16 @@
       "label": "SuperPoint-LightGlue（デフォルト）",
       "description": "深層学習ベースのマッチャー（推奨）。視点や解像度の変化に強いです。"
     },
-    "minima": {
-      "label": "MINIMA-ROMA",
-      "description": "高精度だが重い。16GB以上のRAMを推奨、処理に数分かかります。"
+    "matchanythingRoma": {
+      "label": "MatchAnything-RoMA",
+      "description": "MatchAnythingとRoMAを組み合わせた密マッチャー。ロバストで高精度、高品質な結果に推奨。"
+    },
+    "matchanythingEloftr": {
+      "label": "MatchAnything-ELoFTR",
+      "description": "MatchAnythingとELoFTRを組み合わせた密マッチャー。速度と精度のバランスが良い。"
     },
     "akazeSiftNote": "AKAZE/SIFTは、航空写真と対象画像の空間解像度が大きく異なる場合、対応点の検出に失敗することがあります。",
-    "minimaNote": "MINIMA-ROMAはロバストで密に対応点を取得できますが重く、16GB以上のRAMが必要で、実行に数分かかる場合があります。MINIMA-ROMAを使う場合は画像のリサイズを推奨します。"
+    "matchanythingNote": "MatchAnything系手法はロバストで密に対応点を取得できますが重く、16GB以上のRAMが必要で、実行に数分かかる場合があります。画像のリサイズを推奨します。"
   },
   "result": {
     "title": "結果確認",

@@ -160,7 +160,7 @@ jobs:
             --add-data "$PYPROJ_DATA:pyproj_data" \
             --collect-all "PIL" \
             --collect-all "pillow_heif" \
-            --collect-all "imm" \
+            --collect-all "vismatch" \
             --hidden-import "PIL._imaging" \
             --hidden-import "PIL._imagingft" \
             --hidden-import "app" \
@@ -194,7 +194,7 @@ jobs:
             --collect-submodules "rasterio" \
             --hidden-import "numpy" \
             --hidden-import "cv2" \
-            --hidden-import "imm" \
+            --hidden-import "vismatch" \
             --hidden-import "torch" \
             --hidden-import "torchvision" \
             --hidden-import "kornia" \
@@ -203,7 +203,7 @@ jobs:
             app/main.py
 
           # Model weights are downloaded on demand at runtime; do not bundle them.
-          rm -rf dist/backend-sidecar/_internal/imm/model_weights
+          rm -rf dist/backend-sidecar/_internal/vismatch/model_weights
 
       - name: Smoke test backend sidecar (Unix)
         if: matrix.platform != 'windows-latest'
@@ -276,7 +276,7 @@ jobs:
             --add-data "$PYPROJ_DATA;pyproj_data" `
             --collect-all "PIL" `
             --collect-all "pillow_heif" `
-            --collect-all "imm" `
+            --collect-all "vismatch" `
             --hidden-import "PIL._imaging" `
             --hidden-import "PIL._imagingft" `
             --hidden-import "app" `
@@ -310,7 +310,7 @@ jobs:
             --collect-submodules "rasterio" `
             --hidden-import "numpy" `
             --hidden-import "cv2" `
-            --hidden-import "imm" `
+            --hidden-import "vismatch" `
             --hidden-import "torch" `
             --hidden-import "torchvision" `
             --hidden-import "kornia" `
@@ -319,7 +319,7 @@ jobs:
             app/main.py
 
           # Model weights are downloaded on demand at runtime; do not bundle them.
-          $weightsDir = Join-Path $PWD "dist/backend-sidecar/_internal/imm/model_weights"
+          $weightsDir = Join-Path $PWD "dist/backend-sidecar/_internal/vismatch/model_weights"
           if (Test-Path $weightsDir) {
             Remove-Item -Recurse -Force $weightsDir
           }

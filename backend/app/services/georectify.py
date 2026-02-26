@@ -22,7 +22,7 @@ import numpy as np
 import rasterio
 
 from app.api.deps import FileError, MatchingError, MemoryError, ProcessingError
-from app.core.model_cache import configure_imm_runtime
+from app.core.model_cache import configure_vismatch_runtime
 from app.schemas import GCP, CameraParamsValues, ProcessMetrics
 from app.utils.image import imread_unicode, safe_image_path
 
@@ -41,7 +41,7 @@ def _normalize_resize(method: str, resize: int | str | None) -> int | str:
         return resize
     if resize is not None:
         return resize
-    if method in ("minima-roma",):
+    if method in ("matchanything-roma", "matchanything-eloftr"):
         return 800
     return "none"
 
@@ -269,6 +269,7 @@ def _camera_params_to_dict(
         "s2": params.s2,
         "s3": params.s3,
         "s4": params.s4,
+        "model": params.model if params.model else "pinhole",
     }
 
 
@@ -305,6 +306,7 @@ def dict_to_camera_params(params_dict: dict[str, Any]) -> CameraParamsValues:
         s4=params_dict.get("s4", 0.0),
         cx=params_dict.get("cx"),
         cy=params_dict.get("cy"),
+        model=params_dict.get("model", "pinhole"),
     )
 
 
@@ -450,7 +452,7 @@ async def run_estimation(
         raise FileNotFoundError(f"Target image not found: {target_image_path}")
 
     def _run() -> tuple[bytes, CameraParamsValues, list[str]]:
-        active_weights_dir = configure_imm_runtime()
+        active_weights_dir = configure_vismatch_runtime()
         from alproj.gcp import image_match, set_gcp, filter_gcp_distance
         from alproj.optimize import CMAOptimizer, LsqOptimizer
         from alproj.project import reverse_proj

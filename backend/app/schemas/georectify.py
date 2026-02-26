@@ -14,7 +14,7 @@ class MatchRequest(BaseModel):
     camera_params: CameraParamsValues = Field(..., description="Initial camera parameters")
     matching_method: str = Field(
         default="superpoint-lightglue",
-        pattern="^(akaze|sift|superpoint-lightglue|minima-roma|tiny-roma)$",
+        pattern="^(akaze|sift|superpoint-lightglue|matchanything-roma|matchanything-eloftr)$",
         description="Image matching method",
     )
     outlier_filter: str | None = Field(
@@ -70,7 +70,7 @@ class EstimateRequest(BaseModel):
     camera_params: CameraParamsValues = Field(..., description="Initial camera parameters")
     matching_method: str = Field(
         default="superpoint-lightglue",
-        pattern="^(akaze|sift|superpoint-lightglue|minima-roma|tiny-roma)$",
+        pattern="^(akaze|sift|superpoint-lightglue|matchanything-roma|matchanything-eloftr)$",
         description="Image matching method",
     )
     optimizer: str = Field(

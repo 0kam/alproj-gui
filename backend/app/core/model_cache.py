@@ -59,14 +59,14 @@ def configure_ssl_certificates() -> Path | None:
 
 
 def get_runtime_model_weights_dir() -> Path:
-    """Return user-writable runtime directory for imm model weights."""
+    """Return user-writable runtime directory for vismatch model weights."""
     if sys.platform == "darwin":
         base = Path.home() / "Library" / "Caches"
     elif sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     else:
         base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return base / "alproj-gui" / "imm" / "model_weights"
+    return base / "alproj-gui" / "vismatch" / "model_weights"
 
 
 def _has_bundled_hf_snapshots(weights_dir: Path) -> bool:
@@ -106,7 +106,7 @@ def resolve_model_weights_dir(bundle_dir: str | Path | None = None) -> tuple[Pat
         bundle_path = None
 
     if bundle_path is not None:
-        bundled_weights_dir = bundle_path / "imm" / "model_weights"
+        bundled_weights_dir = bundle_path / "vismatch" / "model_weights"
         if bundled_weights_dir.exists() and has_usable_bundled_weights(bundled_weights_dir):
             return bundled_weights_dir, True
 
@@ -129,7 +129,7 @@ def configure_model_cache_environment(bundle_dir: str | Path | None = None) -> P
     os.environ["HF_HOME"] = str(hf_cache)
     os.environ["HUGGINGFACE_HUB_CACHE"] = str(hf_hub_cache)
     os.environ["TORCH_HOME"] = str(torch_cache)
-    os.environ["ALPROJ_IMM_WEIGHTS_DIR"] = str(active_weights_dir)
+    os.environ["ALPROJ_VISMATCH_WEIGHTS_DIR"] = str(active_weights_dir)
 
     if use_bundled_weights:
         os.environ["HF_HUB_OFFLINE"] = "1"
@@ -139,8 +139,8 @@ def configure_model_cache_environment(bundle_dir: str | Path | None = None) -> P
     return active_weights_dir
 
 
-def configure_imm_runtime(bundle_dir: str | Path | None = None) -> Path:
-    """Configure imm/torch runtime paths and return active weights directory."""
+def configure_vismatch_runtime(bundle_dir: str | Path | None = None) -> Path:
+    """Configure vismatch/torch runtime paths and return active weights directory."""
     configure_ssl_certificates()
     active_weights_dir = configure_model_cache_environment(bundle_dir)
 
@@ -153,11 +153,11 @@ def configure_imm_runtime(bundle_dir: str | Path | None = None) -> Path:
         logger.warning("Failed to configure torch.hub dir: %s", exc)
 
     try:
-        import imm
+        import vismatch
 
-        imm.WEIGHTS_DIR = active_weights_dir
-        imm.WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+        vismatch.WEIGHTS_DIR = active_weights_dir
+        vismatch.WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
     except Exception as exc:
-        logger.warning("Failed to configure imm.WEIGHTS_DIR: %s", exc)
+        logger.warning("Failed to configure vismatch.WEIGHTS_DIR: %s", exc)
 
     return active_weights_dir

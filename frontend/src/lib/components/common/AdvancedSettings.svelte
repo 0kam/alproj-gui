@@ -2,7 +2,7 @@
   Advanced Settings Panel Component (T063-T065)
 
   Provides advanced configuration options for georectification:
-  - Matching algorithm selection (akaze/sift/superpoint-lightglue/minima-roma)
+  - Matching algorithm selection (akaze/sift/superpoint-lightglue/matchanything-roma/matchanything-eloftr)
   - Optimization parameters (optimizer, max_generations, min_gcp_distance)
   - GCP table integration
   - Reprocess button
@@ -61,9 +61,14 @@
 			descriptionKey: 'matching.superpoint.description'
 		},
 		{
-			value: 'minima-roma',
-			labelKey: 'matching.minima.label',
-			descriptionKey: 'matching.minima.description'
+			value: 'matchanything-roma',
+			labelKey: 'matching.matchanythingRoma.label',
+			descriptionKey: 'matching.matchanythingRoma.description'
+		},
+		{
+			value: 'matchanything-eloftr',
+			labelKey: 'matching.matchanythingEloftr.label',
+			descriptionKey: 'matching.matchanythingEloftr.description'
 		}
 	];
 

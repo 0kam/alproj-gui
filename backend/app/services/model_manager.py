@@ -24,9 +24,9 @@ class ModelInfo(NamedTuple):
 
 # Models bundled with the app
 BUNDLED_MODELS = [
-    "tiny-roma",
+    "matchanything-roma",
     "superpoint-lightglue",
-    "minima-roma",
+    "matchanything-eloftr",
     "rdd",
 ]
 
@@ -64,7 +64,7 @@ def setup_model_environment() -> dict[str, str]:
     """
     Set up environment variables to use bundled models.
 
-    This should be called before importing imm or torch.
+    This should be called before importing vismatch or torch.
 
     Returns the environment variables that were set.
     """
@@ -99,15 +99,15 @@ def get_model_info(model_name: str) -> ModelInfo:
 
     # Approximate sizes in MB
     sizes = {
-        "tiny-roma": 11,
+        "matchanything-roma": 600,
         "superpoint-lightglue": 50,
-        "minima-roma": 557,
+        "matchanything-eloftr": 400,
         "rdd": 270,
         "ufm": 3400,
     }
 
     # Bundled models are always usable.
-    # If they are not bundled, imm can download them at runtime.
+    # If they are not bundled, vismatch can download them at runtime.
     available = model_name in BUNDLED_MODELS or model_name in DOWNLOADABLE_MODELS
 
     return ModelInfo(
@@ -128,14 +128,14 @@ def get_matcher(model_name: str) -> "BaseMatcher":  # type: ignore[name-defined]
     """
     Get a matcher instance for the specified model.
 
-    This is a wrapper around imm.get_matcher that ensures
+    This is a wrapper around vismatch.get_matcher that ensures
     the model environment is set up correctly.
     """
     # Ensure environment is set up
     setup_model_environment()
 
-    # Import imm after setting up environment
-    import imm
+    # Import vismatch after setting up environment
+    import vismatch
 
     model_info = get_model_info(model_name)
     if not model_info.available:
@@ -144,4 +144,4 @@ def get_matcher(model_name: str) -> "BaseMatcher":  # type: ignore[name-defined]
             f"Bundled: {model_info.bundled}, Size: {model_info.size_mb}MB"
         )
 
-    return imm.get_matcher(model_name)
+    return vismatch.get_matcher(model_name)

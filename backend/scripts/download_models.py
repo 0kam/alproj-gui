@@ -15,9 +15,9 @@ from pathlib import Path
 
 # Models to bundle (excluding UFM due to size)
 BUNDLED_MODELS = [
-    "tiny-roma",
+    "matchanything-roma",
     "superpoint-lightglue",
-    "minima-roma",
+    "matchanything-eloftr",
     "rdd",
 ]
 
@@ -32,14 +32,14 @@ def get_cache_paths() -> tuple[Path, Path]:
 
 def download_models() -> None:
     """Download models by initializing them."""
-    import imm
+    import vismatch
 
     device = "cpu"
 
     for model_name in BUNDLED_MODELS:
         print(f"Downloading {model_name}...")
         try:
-            _ = imm.get_matcher(model_name, device=device)
+            _ = vismatch.get_matcher(model_name, device=device)
             print(f"  ✓ {model_name} downloaded")
         except Exception as e:
             print(f"  ✗ Failed to download {model_name}: {e}")
@@ -58,8 +58,8 @@ def copy_models_to_bundle_dir(bundle_dir: Path) -> dict[str, list[Path]]:
     # HuggingFace model mappings
     hf_models = {
         "superpoint-lightglue": "models--image-matching-models--superpoint-lightglue",
-        "tiny-roma": "models--image-matching-models--tiny-roma",
-        "minima-roma": "models--image-matching-models--minima",  # minima-roma uses minima
+        "matchanything-roma": "models--image-matching-models--matchanything-roma",
+        "matchanything-eloftr": "models--image-matching-models--matchanything-eloftr",
         "rdd": "models--image-matching-models--rdd",
     }
 
@@ -69,13 +69,10 @@ def copy_models_to_bundle_dir(bundle_dir: Path) -> dict[str, list[Path]]:
             "superpoint_v1.pth",
             "superpoint_lightglue_v0-1_arxiv.pth",
         ],
-        "tiny-roma": [
-            "tiny_roma_v1_outdoor.pth",
-            "xfeat.pt",
-        ],
-        "minima-roma": [
+        "matchanything-roma": [
             "roma_outdoor.pth",
         ],
+        "matchanything-eloftr": [],
         "rdd": [
             "resnet50-0676ba61.pth",
         ],

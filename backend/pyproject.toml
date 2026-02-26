@@ -1,6 +1,6 @@
 [project]
 name = "alproj-gui-backend"
-version = "0.1.4"
+version = "0.1.5"
 description = "Backend server for alproj GUI application"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "python-multipart>=0.0.6",
     "websockets>=12.0",
-    "alproj[imm] @ git+https://github.com/0kam/alproj.git",
+    "alproj[vismatch] @ git+https://github.com/0kam/alproj.git",
     "rasterio>=1.3.0",
     "numpy>=1.24.0",
     "opencv-python-headless>=4.8.0",
@@ -80,6 +80,7 @@ module = [
     "rasterio.*",
     "cv2.*",
     "alproj.*",
+    "vismatch.*",
 ]
 ignore_missing_imports = true
 

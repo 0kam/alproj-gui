@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw
 from app.api.deps import ProcessingError, ValidationError, get_job_queue_dep
 from app.core.config import settings
 from app.core.jobs import Job, JobProgress, JobQueue
-from app.core.model_cache import configure_imm_runtime
+from app.core.model_cache import configure_vismatch_runtime
 from app.utils.image import imread_unicode, safe_image_path
 from app.schemas.camera import SimulationRequest, SimulationResponse
 from app.schemas.georectify import (
@@ -47,7 +47,7 @@ def _normalize_resize(method: str, resize: int | str | None) -> int | str:
         return resize
     if resize is not None:
         return resize
-    if method in ("minima-roma",):
+    if method in ("matchanything-roma", "matchanything-eloftr"):
         return 800
     return "none"
 
@@ -222,7 +222,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
         cv2.imwrite(str(sim_path), sim_img)
 
         try:
-            active_weights_dir = configure_imm_runtime()
+            active_weights_dir = configure_vismatch_runtime()
             log.append(f"Model cache: {active_weights_dir}")
             from alproj.gcp import image_match
 
@@ -282,10 +282,10 @@ async def match_images(request: MatchRequest) -> MatchResponse:
             except Exception as e:
                 logger.warning(f"Failed to cache matches: {e}")
         except BrokenPipeError as e:
-            # BrokenPipeError often occurs with large models (minima-roma)
+            # BrokenPipeError often occurs with large models (matchanything-roma/matchanything-eloftr)
             # due to subprocess communication issues
             logger.error(f"BrokenPipeError during image_match: {e}", exc_info=True)
-            log.append(f"image_match error: {e} (BrokenPipeError - this may occur with large models like minima-roma)")
+            log.append(f"image_match error: {e} (BrokenPipeError - this may occur with large models like matchanything-roma)")
             plot_bytes = _placeholder_png(f"Matching failed: {e}\n\nTry using a different matching method.")
         except OSError as e:
             # Catch other OS-level errors (EPIPE, etc.)

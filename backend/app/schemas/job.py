@@ -24,7 +24,7 @@ class ProcessOptions(BaseModel):
 
     matching_method: str = Field(
         default="superpoint-lightglue",
-        pattern="^(akaze|sift|superpoint-lightglue|minima-roma|tiny-roma)$",
+        pattern="^(akaze|sift|superpoint-lightglue|matchanything-roma|matchanything-eloftr)$",
         description="Image matching algorithm",
     )
     optimizer: str = Field(

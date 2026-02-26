@@ -44,7 +44,7 @@
 	const MATCH_TIMEOUT_MS = 1200000; // 20 minutes
 
 	function getDefaultResize(method: MatchingMethod): number | 'none' {
-		return method === 'minima-roma' ? 800 : 'none';
+		return (method === 'matchanything-roma' || method === 'matchanything-eloftr') ? 800 : 'none';
 	}
 
 	// Initialize from store or use defaults
@@ -354,14 +354,15 @@
 					<option value="akaze">{t('matching.akaze.label')}</option>
 					<option value="sift">{t('matching.sift.label')}</option>
 					<option value="superpoint-lightglue">{t('matching.superpoint.label')}</option>
-					<option value="minima-roma">{t('matching.minima.label')}</option>
+					<option value="matchanything-roma">{t('matching.matchanythingRoma.label')}</option>
+				<option value="matchanything-eloftr">{t('matching.matchanythingEloftr.label')}</option>
 				</select>
 				<div class="mt-2 space-y-1 text-xs text-gray-500">
 					<p>
 						{t('matching.akazeSiftNote')}
 					</p>
 					<p>
-						{t('matching.minimaNote')}
+						{t('matching.matchanythingNote')}
 					</p>
 				</div>
 			</div>

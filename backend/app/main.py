@@ -14,7 +14,7 @@ import os
 import sys
 
 # Configure environment variables for PyInstaller bundled app
-# This must be done BEFORE importing pyproj/rasterio/gdal/imm
+# This must be done BEFORE importing pyproj/rasterio/gdal/vismatch
 from app.core.model_cache import configure_model_cache_environment
 
 
@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="alproj-gui Backend",
     description="Backend API server for alproj georectification GUI",
-    version="0.1.4",
+    version="0.1.5",
     lifespan=lifespan,
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
