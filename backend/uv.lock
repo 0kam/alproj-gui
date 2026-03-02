@@ -178,7 +178,7 @@ vismatch = [
 
 [[package]]
 name = "alproj-gui-backend"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "." }
 dependencies = [
     { name = "alproj", extra = ["vismatch"] },

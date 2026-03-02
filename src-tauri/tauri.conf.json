@@ -56,6 +56,9 @@
       "minimumSystemVersion": "10.15",
       "signingIdentity": "-"
     },
+    "nsis": {
+      "installMode": "currentUser"
+    },
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
