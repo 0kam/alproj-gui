@@ -56,14 +56,14 @@
       "minimumSystemVersion": "10.15",
       "signingIdentity": "-"
     },
-    "nsis": {
-      "installMode": "currentUser"
-    },
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": null,
-      "wix": null
+      "wix": null,
+      "nsis": {
+        "installMode": "currentUser"
+      }
     }
   },
   "plugins": {
