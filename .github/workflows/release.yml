@@ -176,7 +176,18 @@ jobs:
             --hidden-import "uvicorn.lifespan" \
             --hidden-import "uvicorn.lifespan.on" \
             --hidden-import "fastapi" \
+            --hidden-import "starlette" \
+            --hidden-import "anyio" \
+            --hidden-import "multipart" \
+            --hidden-import "websockets" \
+            --hidden-import "h11" \
             --hidden-import "pydantic" \
+            --hidden-import "pydantic_settings" \
+            --hidden-import "dotenv" \
+            --hidden-import "typing_extensions" \
+            --hidden-import "typing_inspection" \
+            --hidden-import "certifi" \
+            --hidden-import "packaging" \
             --hidden-import "rasterio" \
             --hidden-import "rasterio.sample" \
             --hidden-import "rasterio.vrt" \
@@ -192,13 +203,50 @@ jobs:
             --hidden-import "rasterio._features" \
             --hidden-import "rasterio._warp" \
             --collect-submodules "rasterio" \
+            --hidden-import "pyproj" \
             --hidden-import "numpy" \
             --hidden-import "cv2" \
+            --hidden-import "pandas" \
+            --hidden-import "scipy" \
+            --hidden-import "scipy.ndimage" \
+            --hidden-import "scipy.optimize" \
+            --hidden-import "scipy.spatial" \
+            --hidden-import "alproj" \
+            --collect-submodules "alproj" \
+            --hidden-import "moderngl" \
+            --hidden-import "glcontext" \
+            --hidden-import "cmaes" \
             --hidden-import "vismatch" \
             --hidden-import "torch" \
             --hidden-import "torchvision" \
             --hidden-import "kornia" \
+            --hidden-import "kornia_moons" \
+            --hidden-import "kornia_rs" \
             --hidden-import "huggingface_hub" \
+            --hidden-import "loguru" \
+            --hidden-import "safetensors" \
+            --hidden-import "safetensors.torch" \
+            --hidden-import "einops" \
+            --hidden-import "poselib" \
+            --hidden-import "yacs" \
+            --hidden-import "omegaconf" \
+            --hidden-import "antlr4" \
+            --hidden-import "yaml" \
+            --hidden-import "tqdm" \
+            --hidden-import "imageio" \
+            --hidden-import "h5py" \
+            --hidden-import "e2cnn" \
+            --hidden-import "transforms3d" \
+            --hidden-import "flow_vis" \
+            --hidden-import "lightning" \
+            --hidden-import "pytorch_lightning" \
+            --hidden-import "timm" \
+            --hidden-import "roma" \
+            --hidden-import "sklearn" \
+            --hidden-import "uniception" \
+            --hidden-import "fsspec" \
+            --hidden-import "filelock" \
+            --hidden-import "gdown" \
             --add-data "app:app" \
             app/main.py
 
@@ -292,7 +340,18 @@ jobs:
             --hidden-import "uvicorn.lifespan" `
             --hidden-import "uvicorn.lifespan.on" `
             --hidden-import "fastapi" `
+            --hidden-import "starlette" `
+            --hidden-import "anyio" `
+            --hidden-import "multipart" `
+            --hidden-import "websockets" `
+            --hidden-import "h11" `
             --hidden-import "pydantic" `
+            --hidden-import "pydantic_settings" `
+            --hidden-import "dotenv" `
+            --hidden-import "typing_extensions" `
+            --hidden-import "typing_inspection" `
+            --hidden-import "certifi" `
+            --hidden-import "packaging" `
             --hidden-import "rasterio" `
             --hidden-import "rasterio.sample" `
             --hidden-import "rasterio.vrt" `
@@ -308,13 +367,50 @@ jobs:
             --hidden-import "rasterio._features" `
             --hidden-import "rasterio._warp" `
             --collect-submodules "rasterio" `
+            --hidden-import "pyproj" `
             --hidden-import "numpy" `
             --hidden-import "cv2" `
+            --hidden-import "pandas" `
+            --hidden-import "scipy" `
+            --hidden-import "scipy.ndimage" `
+            --hidden-import "scipy.optimize" `
+            --hidden-import "scipy.spatial" `
+            --hidden-import "alproj" `
+            --collect-submodules "alproj" `
+            --hidden-import "moderngl" `
+            --hidden-import "glcontext" `
+            --hidden-import "cmaes" `
             --hidden-import "vismatch" `
             --hidden-import "torch" `
             --hidden-import "torchvision" `
             --hidden-import "kornia" `
+            --hidden-import "kornia_moons" `
+            --hidden-import "kornia_rs" `
             --hidden-import "huggingface_hub" `
+            --hidden-import "loguru" `
+            --hidden-import "safetensors" `
+            --hidden-import "safetensors.torch" `
+            --hidden-import "einops" `
+            --hidden-import "poselib" `
+            --hidden-import "yacs" `
+            --hidden-import "omegaconf" `
+            --hidden-import "antlr4" `
+            --hidden-import "yaml" `
+            --hidden-import "tqdm" `
+            --hidden-import "imageio" `
+            --hidden-import "h5py" `
+            --hidden-import "e2cnn" `
+            --hidden-import "transforms3d" `
+            --hidden-import "flow_vis" `
+            --hidden-import "lightning" `
+            --hidden-import "pytorch_lightning" `
+            --hidden-import "timm" `
+            --hidden-import "roma" `
+            --hidden-import "sklearn" `
+            --hidden-import "uniception" `
+            --hidden-import "fsspec" `
+            --hidden-import "filelock" `
+            --hidden-import "gdown" `
             --add-data "app;app" `
             app/main.py
 
