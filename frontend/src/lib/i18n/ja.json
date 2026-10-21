@@ -102,7 +102,7 @@
   "rendering": {
     "title": "レンダリング設定",
     "maxDistance": "最大距離 (m)",
-    "maxDistanceHint": "シミュレーションで描画する最大距離",
+    "maxDistanceHint": "シミュレーションで描画する最大距離。メモリ使用量を抑えるため、遠方ほど自動的に粗い解像度で描画します。",
     "minDistance": "最小距離 (m)",
     "minDistanceHint": "カメラに近すぎる領域を除外"
   },
@@ -129,6 +129,8 @@
     "resize": "リサイズ",
     "threshold": "閾値",
     "thresholdHelp": "基礎行列ベースの外れ値検知の閾値（px）です。歪みの大きいレンズなどで画像周囲に対応点が取れなかった場合は大きめに設定してください。",
+    "surfaceResolution": "地表解像度 (m/pixel)",
+    "surfaceResolutionHelp": "カメラ近傍の解像度です。値を小さくすると精細になります。遠方はメモリに収まるよう自動的に粗くなります。",
     "run": "マッチング実行",
     "running": "マッチング中...",
     "modelDownloadNotice": "マッチングモデルダウンロード中（初回のみ実行されます）",

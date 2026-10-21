@@ -257,6 +257,18 @@ class JobError(AppException):
         self.job_id = job_id
 
 
+class OperationCancelledError(AppException):
+    """A long-running operation was cancelled before completion."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize cancellation error.
+
+        Args:
+            message: Error message.
+        """
+        super().__init__(message, status_code=status.HTTP_409_CONFLICT)
+
+
 # =============================================================================
 # Exception Handlers
 # =============================================================================

@@ -42,6 +42,11 @@ class MatchRequest(BaseModel):
         ge=0.0,
         description="Surface extraction distance from camera (meters)",
     )
+    surface_resolution: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Surface mesh resolution for matching (meters per pixel)",
+    )
     simulation_min_distance: float = Field(
         default=100.0,
         ge=0.0,
@@ -118,6 +123,11 @@ class EstimateRequest(BaseModel):
         default=3000.0,
         ge=0.0,
         description="Surface extraction distance from camera (meters)",
+    )
+    surface_resolution: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Surface mesh resolution for matching (meters per pixel)",
     )
     simulation_min_distance: float = Field(
         default=100.0,

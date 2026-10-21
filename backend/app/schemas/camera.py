@@ -73,8 +73,7 @@ class SimulationRequest(BaseModel):
     surface_distance: float = Field(
         default=2000.0,
         ge=100.0,
-        le=10000.0,
-        description="Surface extraction distance from camera (meters). Will be auto-adjusted if too large.",
+        description="Surface extraction distance from camera (meters)",
     )
 
 

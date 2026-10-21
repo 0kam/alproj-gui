@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="alproj-gui Backend",
     description="Backend API server for alproj georectification GUI",
-    version="0.1.5",
+    version="0.1.6",
     lifespan=lifespan,
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,

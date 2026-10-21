@@ -407,6 +407,7 @@
 			spatial_thin_grid: existingParams?.spatial_thin_grid ?? 50,
 			spatial_thin_selection: existingParams?.spatial_thin_selection ?? 'center',
 			surface_distance: surfaceDistance,
+			surface_resolution: existingParams?.surface_resolution ?? 1.0,
 			simulation_min_distance: simulationMinDistance
 		};
 		wizardStore.setMatchingResult({ plot: $wizardStore.matchingPlot, params: updatedParams });
@@ -707,7 +708,6 @@
 								id="surface-distance"
 								type="number"
 								min="100"
-								max="10000"
 								step="100"
 								bind:value={surfaceDistance}
 								class="setting-input"

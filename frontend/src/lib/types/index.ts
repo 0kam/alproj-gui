@@ -288,6 +288,7 @@ export interface MatchingParams {
 	spatial_thin_grid: number | null;
 	spatial_thin_selection: string | null;
 	surface_distance: number;
+	surface_resolution: number;
 	simulation_min_distance: number;
 	match_id?: string | null;
 }
@@ -338,6 +339,7 @@ export interface MatchRequest {
 	spatial_thin_grid?: number | null;
 	spatial_thin_selection?: string | null;
 	surface_distance?: number;
+	surface_resolution?: number;
 	simulation_min_distance?: number;
 }
 
@@ -370,6 +372,7 @@ export interface EstimateRequest {
 	spatial_thin_grid?: number | null;
 	spatial_thin_selection?: string | null;
 	surface_distance?: number;
+	surface_resolution?: number;
 	simulation_min_distance?: number;
 	optimize_position?: boolean;
 	optimize_orientation?: boolean;

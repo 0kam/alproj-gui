@@ -297,4 +297,33 @@ with safe_image_path(target_image_path) as safe_target:
 
 ---
 
+### [UI] マッチング画面でモデルDLしていないのにDL進捗が表示される
+
+**日付:** 2026-10-21
+**症状:** マッチング実行中に「モデルダウンロード中 3%」のような表示が出るが、実際にはダウンロードは発生しておらず、そのままマッチング結果が出る
+**原因:** DL進捗はバックエンドのサイドカーログを読み取り、`download` を含む行や `\d%|`（tqdmの進捗バー）を検出して表示していた。前回のカメラ推定（CMA-ES）がバックグラウンドで続いていると、その進捗バー `3%|▎ | 8/300 [01:30<48:54, 10.05s/it]` が同じログに出力され、DL進捗と誤認していた
+**解決策:** DL判定をバイト単位の tqdm 進捗（`200M/440M [..., 19.6MB/s]` のように括弧内に `B/s` を含むもの）、`downloading`、`.partial`、`fetching N files` に限定し、パーセント抽出もバイト単位の進捗バーからのみ行う
+
+**教訓:** 共有ログを文字列マッチングで解釈する場合、他の処理（最適化・推論など）の tqdm 出力も混在する前提で、対象処理に固有の形式（単位など）で判定する
+**関連ファイル:** `frontend/src/routes/georectify/steps/processing/+page.svelte`
+
+---
+
+### [API] 画面を離れてもカメラ推定がバックエンドで走り続け、複数同時実行で遅くなる
+
+**日付:** 2026-10-21
+**症状:** カメラ推定（CMA-ES、最大300世代 × 個体数150）を実行中に画面を移動したり再実行したりすると、前の推定がバックエンドで動き続ける。最大3本が同時に走り、1世代あたり約11秒まで遅くなった
+**原因:** `/api/georectify/estimate` は同期処理をワーカースレッドで実行しており、クライアントの切断や新しいリクエストを検知して止める仕組みがなかった。フロントエンドもページ離脱時にリクエストを中断していなかった
+**解決策:**
+- `start_estimation_run()` で新しい推定を登録すると、実行中の推定にキャンセルを通知する（単一ユーザー前提で「後勝ち」）
+- ルートで `request.is_disconnected()` を1秒ごとに確認し、切断されたらキャンセル
+- alproj の最適化器には停止フックがないため、`_make_cancellable()` で目的関数（`_loss_function` / `_residual_function`）をラップし、評価ごとにキャンセルを確認する。フェーズの区切りでも確認する
+- `EstimationCancelled` は `BaseException` を継承し、パイプライン内の `except Exception`（Phase 2 のフォールバックなど）に握りつぶされないようにする。ルートでは 409 に変換する
+- フロントエンドは `onDestroy` で `AbortController` を中断し、中断時はエラーを表示しない
+
+**教訓:** ワーカースレッドで動く長時間処理は、クライアント切断や再実行で止める手段を最初から用意する。キャンセル例外を `Exception` 継承にすると、広い `except Exception` に吸収されて止まらないことがある
+**関連ファイル:** `backend/app/services/georectify.py`, `backend/app/api/routes/georectify.py`, `backend/app/api/deps.py`, `frontend/src/routes/georectify/steps/result/+page.svelte`, `backend/tests/test_estimation_cancel.py`
+
+---
+
 <!-- 今後のエラー修正事例をここに追加していく -->

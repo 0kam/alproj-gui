@@ -12,7 +12,7 @@
 	import { t } from '$lib/i18n';
 	import { Button, Card } from '$lib/components/common';
 	import ProcessLog from '$lib/components/common/ProcessLog.svelte';
-	import { api } from '$lib/services/api';
+	import { api, ApiError } from '$lib/services/api';
 	import { wizardStore } from '$lib/stores';
 	import type { MatchRequest, MatchResponse, MatchingMethod, MatchingParams } from '$lib/types';
 
@@ -38,6 +38,7 @@
 	const defaultSpatialThinGrid: number | null = 50;
 	const defaultThreshold = 30.0;
 	const defaultSurfaceDistance = 3000;
+	const defaultSurfaceResolution = 1.0;
 	const defaultSimulationMinDistance = 100;
 	const fixedOutlierFilter = 'fundamental';
 	const fixedSpatialThinSelection = 'center';
@@ -54,6 +55,7 @@
 		$wizardStore.matchingParams?.resize ?? getDefaultResize(matchingMethod);
 	let threshold = $wizardStore.matchingParams?.threshold ?? defaultThreshold;
 	let surfaceDistance = $wizardStore.matchingParams?.surface_distance ?? defaultSurfaceDistance;
+	let surfaceResolution = $wizardStore.matchingParams?.surface_resolution ?? defaultSurfaceResolution;
 	let simulationMinDistance =
 		$wizardStore.matchingParams?.simulation_min_distance ?? defaultSimulationMinDistance;
 	let resizeEnabled = resize !== 'none';
@@ -78,6 +80,7 @@
 		resize = storedMatchingParams.resize ?? getDefaultResize(matchingMethod);
 		threshold = storedMatchingParams.threshold ?? defaultThreshold;
 		surfaceDistance = storedMatchingParams.surface_distance ?? defaultSurfaceDistance;
+		surfaceResolution = storedMatchingParams.surface_resolution ?? defaultSurfaceResolution;
 		simulationMinDistance =
 			storedMatchingParams.simulation_min_distance ?? defaultSimulationMinDistance;
 		resizeEnabled = resize !== 'none';
@@ -105,6 +108,14 @@
 		errorMessage = '';
 	}
 
+	function formatApiError(error: unknown): string {
+		if (error instanceof ApiError) {
+			const body = error.body as { error?: string; detail?: string } | null;
+			return body?.detail || body?.error || error.statusText;
+		}
+		return error instanceof Error ? error.message : t('matching.failed');
+	}
+
 	function isTauri(): boolean {
 		const runtime = globalThis as typeof globalThis & {
 			__TAURI__?: unknown;
@@ -129,15 +140,20 @@
 			.filter((line) => line.length > 0);
 	}
 
+	// Model downloads report byte-based tqdm progress, e.g.
+	// "45%|████▌     | 200M/440M [00:10<00:12, 19.6MB/s]". Other progress bars sharing
+	// the backend log (e.g. the optimizer's "3%|▎ | 8/300 [01:30<48:54, 10.05s/it]")
+	// must not be mistaken for downloads.
+	const DOWNLOAD_PROGRESS_PATTERN = /(\d{1,3})%\|[^|]*\|[^[\]|]*\[[^\]]*B\/s\]/g;
+
 	function hasDownloadSignals(lines: string[]): boolean {
 		return lines.some((line) => {
 			const lower = line.toLowerCase();
 			return (
-				lower.includes('downloading:') ||
-				lower.includes('download') ||
-				lower.includes('fetching') ||
+				lower.includes('downloading') ||
 				lower.includes('.partial') ||
-				/\d{1,3}%\|/.test(line)
+				/fetching \d+ files/.test(lower) ||
+				line.match(DOWNLOAD_PROGRESS_PATTERN) !== null
 			);
 		});
 	}
@@ -145,7 +161,7 @@
 	function extractPercentFromLines(lines: string[]): number | null {
 		let latest: number | null = null;
 		for (const line of lines) {
-			const matches = [...line.matchAll(/(\d{1,3})%/g)];
+			const matches = [...line.matchAll(DOWNLOAD_PROGRESS_PATTERN)];
 			if (matches.length === 0) continue;
 			const raw = matches[matches.length - 1]?.[1];
 			if (!raw) continue;
@@ -261,6 +277,7 @@
 				spatial_thin_grid: spatialThinGrid,
 				spatial_thin_selection: fixedSpatialThinSelection,
 				surface_distance: surfaceDistance,
+				surface_resolution: surfaceResolution,
 				simulation_min_distance: simulationMinDistance,
 				match_id: null
 			}
@@ -279,6 +296,7 @@
 				spatial_thin_grid: spatialThinGrid,
 				spatial_thin_selection: fixedSpatialThinSelection,
 				surface_distance: surfaceDistance,
+				surface_resolution: surfaceResolution,
 				simulation_min_distance: simulationMinDistance
 			};
 
@@ -300,6 +318,7 @@
 				spatial_thin_grid: spatialThinGrid,
 				spatial_thin_selection: fixedSpatialThinSelection,
 				surface_distance: surfaceDistance,
+				surface_resolution: surfaceResolution,
 				simulation_min_distance: simulationMinDistance,
 				match_id: matchId
 			};
@@ -313,7 +332,7 @@
 			wizardStore.completeStep(2);
 		} catch (err) {
 			hasError = true;
-			errorMessage = err instanceof Error ? err.message : t('matching.failed');
+			errorMessage = formatApiError(err);
 		} finally {
 			await pollModelDownloadLogOnce();
 			modelDownloadProgress = 100;
@@ -415,6 +434,20 @@
 						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
 					/>
 					<p class="mt-1 text-xs text-gray-500">{t('matching.thresholdHelp')}</p>
+				</div>
+				<div>
+					<label for="surface-resolution" class="block text-sm font-medium text-gray-700 mb-1">
+						{t('matching.surfaceResolution')}
+					</label>
+					<input
+						id="surface-resolution"
+						type="number"
+						min="0.1"
+						step="0.1"
+						bind:value={surfaceResolution}
+						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+					/>
+					<p class="mt-1 text-xs text-gray-500">{t('matching.surfaceResolutionHelp')}</p>
 				</div>
 			</div>
 		</div>

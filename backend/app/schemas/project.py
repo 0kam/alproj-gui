@@ -116,6 +116,7 @@ class MatchingParams(BaseModel):
         default=None, description="Spatial thinning selection strategy"
     )
     surface_distance: float | None = Field(default=None, description="Surface distance")
+    surface_resolution: float | None = Field(default=None, description="Surface resolution")
     simulation_min_distance: float | None = Field(
         default=None, description="Minimum simulation distance"
     )

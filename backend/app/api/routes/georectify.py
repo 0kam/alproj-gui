@@ -14,15 +14,21 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import threading
 from io import BytesIO
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
 
-from app.api.deps import ProcessingError, ValidationError, get_job_queue_dep
+from app.api.deps import (
+    OperationCancelledError,
+    ProcessingError,
+    ValidationError,
+    get_job_queue_dep,
+)
 from app.core.config import settings
 from app.core.jobs import Job, JobProgress, JobQueue
 from app.core.model_cache import configure_vismatch_runtime
@@ -202,7 +208,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
             camera_x=request.camera_params.x,
             camera_y=request.camera_params.y,
             distance=request.surface_distance,
-            resolution=1.0,  # Use full resolution for matching
+            resolution=request.surface_resolution,
         )
 
         log.append("Generating full-size simulation image...")
@@ -273,6 +279,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
                         "spatial_thin_grid": request.spatial_thin_grid,
                         "spatial_thin_selection": request.spatial_thin_selection,
                         "surface_distance": request.surface_distance,
+                        "surface_resolution": request.surface_resolution,
                         "simulation_min_distance": request.simulation_min_distance,
                         "target_w": target_w,
                         "target_h": target_h,
@@ -329,7 +336,7 @@ async def match_images(request: MatchRequest) -> MatchResponse:
     summary="Run camera parameter estimation step",
     description="Estimate camera parameters using CMA-ES or Least Squares optimization.",
 )
-async def estimate_camera(request: EstimateRequest) -> EstimateResponse:
+async def estimate_camera(request: EstimateRequest, http_request: Request) -> EstimateResponse:
     """Run camera parameter estimation and return optimized params + simulation image.
 
     This endpoint performs the full optimization pipeline:
@@ -338,10 +345,22 @@ async def estimate_camera(request: EstimateRequest) -> EstimateResponse:
     3. Set and filter GCPs
     4. Optimize camera parameters (Phase 1: position, orientation, FOV)
     5. If two_stage enabled: re-match and optimize distortion (Phase 2)
-    """
-    try:
-        from app.services.georectify import run_estimation
 
+    Starting a new estimation cancels any estimation still running, and the run
+    is cancelled when the client disconnects (e.g. the user leaves the page).
+    """
+    from app.services.georectify import (
+        EstimationCancelled,
+        finish_estimation_run,
+        run_estimation,
+        start_estimation_run,
+    )
+
+    cancel_event = start_estimation_run()
+    disconnect_watcher = asyncio.create_task(
+        _cancel_on_disconnect(http_request, cancel_event)
+    )
+    try:
         sim_bytes, optimized_params, log = await run_estimation(
             dsm_path=request.dsm_path,
             ortho_path=request.ortho_path,
@@ -359,11 +378,13 @@ async def estimate_camera(request: EstimateRequest) -> EstimateResponse:
             resize=request.resize,
             threshold=request.threshold,
             surface_distance=request.surface_distance,
+            surface_resolution=request.surface_resolution,
             simulation_min_distance=request.simulation_min_distance,
             optimize_position=request.optimize_position,
             optimize_orientation=request.optimize_orientation,
             optimize_fov=request.optimize_fov,
             optimize_distortion=request.optimize_distortion,
+            cancel_event=cancel_event,
         )
 
         return EstimateResponse(
@@ -372,6 +393,9 @@ async def estimate_camera(request: EstimateRequest) -> EstimateResponse:
             log=log,
         )
 
+    except EstimationCancelled as e:
+        logger.info("Estimation cancelled")
+        raise OperationCancelledError("Estimation was cancelled") from e
     except FileNotFoundError as e:
         raise ValidationError(f"File not found: {e}") from e
     except ValueError as e:
@@ -379,6 +403,19 @@ async def estimate_camera(request: EstimateRequest) -> EstimateResponse:
     except Exception as e:
         logger.exception("Estimation failed")
         raise ProcessingError(f"Estimation failed: {e}", step="estimation") from e
+    finally:
+        disconnect_watcher.cancel()
+        finish_estimation_run(cancel_event)
+
+
+async def _cancel_on_disconnect(http_request: Request, cancel_event: threading.Event) -> None:
+    """Set ``cancel_event`` once the client disconnects."""
+    while not cancel_event.is_set():
+        if await http_request.is_disconnected():
+            logger.info("Client disconnected; cancelling estimation")
+            cancel_event.set()
+            return
+        await asyncio.sleep(1.0)
 
 
 # =============================================================================

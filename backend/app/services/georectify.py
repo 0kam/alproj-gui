@@ -13,10 +13,12 @@ import asyncio
 import builtins
 import logging
 import os
+import threading
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import rasterio
@@ -33,6 +35,118 @@ if TYPE_CHECKING:
     from app.schemas.job import ProcessOptions
 
 logger = logging.getLogger(__name__)
+
+SURFACE_BYTES_PER_VERTEX = 100
+SURFACE_MEMORY_LIMIT_MB = 4000.0
+SURFACE_VERTEX_BUDGET = SURFACE_MEMORY_LIMIT_MB * 1024 * 1024 / SURFACE_BYTES_PER_VERTEX
+# Previews stay as light as the former 10 km @ 5 m maximum
+PREVIEW_SURFACE_VERTEX_BUDGET = (2 * 10_000 / 5.0) ** 2
+# Approximate fraction of a full level's vertices remaining in each outer ring
+LOD_RING_FRACTION = 0.75
+MAX_LOD_LEVELS = 16
+
+
+def plan_surface_levels(
+    distance: float,
+    resolution: float,
+    max_vertices: float = SURFACE_VERTEX_BUDGET,
+) -> list[tuple[float, float]]:
+    """Plan distance-dependent surface levels that fit within the memory budget.
+
+    Returns a list of (half_size, resolution) pairs from near to far. The first
+    level is a square around the camera at the requested resolution; each
+    following level is a ring with twice the extent and half the resolution
+    (twice the pixel size) of the previous one. A single level (uniform mesh) is returned
+    when the whole area fits within the budget, preserving the original behavior.
+    """
+    if distance <= 0:
+        raise ValueError("Surface distance must be greater than zero")
+    if resolution <= 0:
+        raise ValueError("Surface resolution must be greater than zero")
+
+    for n_rings in range(MAX_LOD_LEVELS + 1):
+        # Largest near-field extent whose levels fit within the vertex budget
+        max_near = (resolution / 2) * (
+            max_vertices / (1 + LOD_RING_FRACTION * n_rings)
+        ) ** 0.5
+        if max_near >= distance / 2**n_rings:
+            # max_near < distance / 2**(n_rings - 1) here, otherwise fewer rings would fit
+            levels = [(max_near * 2**k, resolution * 2**k) for k in range(n_rings)]
+            return [*levels, (distance, resolution * 2**n_rings)]
+
+    raise ValueError("Surface distance is too large for the given resolution")
+
+
+# =============================================================================
+# Estimation cancellation
+# =============================================================================
+
+
+class EstimationCancelled(BaseException):  # noqa: N818
+    """Raised inside the estimation worker thread when the run is cancelled.
+
+    Derives from BaseException so that the broad ``except Exception`` handlers
+    in the estimation pipeline (e.g. Phase 2 fallbacks) do not swallow it.
+    """
+
+
+_active_estimation: threading.Event | None = None
+
+_Optimizer = TypeVar("_Optimizer")
+
+
+def start_estimation_run() -> threading.Event:
+    """Register a new estimation run and cancel any run still in progress.
+
+    The app has a single user, so a new estimation always supersedes an older
+    one (e.g. left running after navigating away from the result page).
+    """
+    global _active_estimation
+    if _active_estimation is not None:
+        _active_estimation.set()
+    _active_estimation = threading.Event()
+    return _active_estimation
+
+
+def finish_estimation_run(cancel_event: threading.Event) -> None:
+    """Unregister an estimation run once it has finished."""
+    global _active_estimation
+    if _active_estimation is cancel_event:
+        _active_estimation = None
+
+
+def _raise_if_cancelled(cancel_event: threading.Event | None) -> None:
+    if cancel_event is not None and cancel_event.is_set():
+        raise EstimationCancelled()
+
+
+def _make_cancellable(optimizer: _Optimizer, cancel_event: threading.Event | None) -> _Optimizer:
+    """Make an alproj optimizer abort as soon as ``cancel_event`` is set.
+
+    alproj optimizers have no stop hook, so the objective function they build
+    (``_loss_function`` for CMA-ES, ``_residual_function`` for LSQ) is wrapped
+    to check the event on every evaluation.
+    """
+    if cancel_event is None:
+        return optimizer
+
+    def wrap(build: Callable[..., Callable[[Any], Any]]) -> Callable[..., Callable[[Any], Any]]:
+        def build_checked(*args: Any, **kwargs: Any) -> Callable[[Any], Any]:
+            objective = build(*args, **kwargs)
+
+            def checked(values: Any) -> Any:
+                _raise_if_cancelled(cancel_event)
+                return objective(values)
+
+            return checked
+
+        return build_checked
+
+    for name in ("_loss_function", "_residual_function"):
+        build = getattr(optimizer, name, None)
+        if build is not None:
+            setattr(optimizer, name, wrap(build))
+    return optimizer
 
 
 def _normalize_resize(method: str, resize: int | str | None) -> int | str:
@@ -89,6 +203,7 @@ def create_geo_object(
     crs: str | None = None,
     distance: float = 3000.0,
     resolution: float = 1.0,
+    max_vertices: float = SURFACE_VERTEX_BUDGET,
 ) -> GeoObject:
     """Create a GeoObject from DSM and orthophoto files.
 
@@ -102,7 +217,10 @@ def create_geo_object(
         camera_y: Camera Y coordinate in the projected CRS.
         crs: Optional CRS override. If None, uses DSM's CRS.
         distance: Distance from camera to surface edge (meters).
-        resolution: Surface mesh resolution (meters).
+        resolution: Surface mesh resolution near the camera (meters). Coarser
+            resolutions are used for distant areas when the full extent would
+            exceed the memory budget (see plan_surface_levels).
+        max_vertices: Approximate vertex budget for the surface mesh.
 
     Returns:
         GeoObject containing the surface mesh data.
@@ -128,19 +246,62 @@ def create_geo_object(
                 crs = str(dsm.crs) if dsm.crs else "UNKNOWN"
 
             shooting_point = {"x": camera_x, "y": camera_y}
+            levels = plan_surface_levels(distance, resolution, max_vertices)
 
-            vert, col, ind, offsets = get_colored_surface(
-                aerial=ortho,
-                dsm=dsm,
-                shooting_point=shooting_point,
-                distance=distance,
-                res=resolution,
+            if len(levels) == 1:
+                vert, col, ind, offsets = get_colored_surface(
+                    aerial=ortho,
+                    dsm=dsm,
+                    shooting_point=shooting_point,
+                    distance=distance,
+                    res=resolution,
+                )
+                return GeoObject(vert=vert, col=col, ind=ind, offsets=offsets, crs=crs)
+
+            # Far areas occupy few image pixels, so build concentric rings whose
+            # resolution coarsens with distance to keep memory bounded.
+            logger.info(
+                "Building multi-resolution surface: %s",
+                ", ".join(f"<={half:.0f}m @ {res:g}m" for half, res in levels),
             )
+            verts: list[np.ndarray] = []
+            cols: list[np.ndarray] = []
+            inds: list[np.ndarray] = []
+            n_vert = 0
+            inner = 0.0
+            for half_size, res in levels:
+                vert, col, ind, offsets = get_colored_surface(
+                    aerial=ortho,
+                    dsm=dsm,
+                    shooting_point=shooting_point,
+                    distance=half_size,
+                    res=res,
+                )
+                vert = vert + offsets
+                if inner > 0:
+                    # Drop triangles covered by the finer inner level, keeping
+                    # one coarse cell of overlap so no cracks appear at the seam.
+                    hole = inner - res
+                    inside = (np.abs(vert[:, 0] - camera_x) < hole) & (
+                        np.abs(vert[:, 2] - camera_y) < hole
+                    )
+                    ind = ind[~inside[ind].all(axis=1)]
+                    used, remap = np.unique(ind.ravel(), return_inverse=True)
+                    ind = remap.reshape(-1, 3)
+                    vert, col = vert[used], col[used]
+                verts.append(vert)
+                cols.append(col)
+                inds.append(ind + n_vert)
+                n_vert += len(vert)
+                inner = half_size
 
+            vert = np.concatenate(verts)
+            offsets = vert.min(axis=0)
+            vert -= offsets
             return GeoObject(
                 vert=vert,
-                col=col,
-                ind=ind,
+                col=np.concatenate(cols),
+                ind=np.concatenate(inds),
                 offsets=offsets,
                 crs=crs,
             )
@@ -394,11 +555,13 @@ async def run_estimation(
     resize: int | str | None = None,
     threshold: float = 30.0,
     surface_distance: float = 3000.0,
+    surface_resolution: float = 1.0,
     simulation_min_distance: float = 100.0,
     optimize_position: bool = True,
     optimize_orientation: bool = True,
     optimize_fov: bool = True,
     optimize_distortion: bool = True,
+    cancel_event: threading.Event | None = None,
 ) -> tuple[bytes, CameraParamsValues, list[str]]:
     """Run camera parameter estimation using alproj optimization.
 
@@ -426,11 +589,14 @@ async def run_estimation(
         resize: Resize for matching.
         threshold: Matching threshold.
         surface_distance: Surface extraction distance from camera.
+        surface_resolution: Surface mesh resolution in meters per pixel.
         simulation_min_distance: Minimum distance to render in simulation.
         optimize_position: Optimize camera position (x, y, z).
         optimize_orientation: Optimize camera orientation (pan, tilt, roll).
         optimize_fov: Optimize field of view (fov, a1, a2).
         optimize_distortion: Optimize distortion parameters (k, p, s).
+        cancel_event: When set, the run stops at the next checkpoint or
+            optimizer evaluation and raises EstimationCancelled.
 
     Returns:
         Tuple of (simulation_png_bytes, optimized_params, log_messages).
@@ -438,6 +604,7 @@ async def run_estimation(
     Raises:
         FileNotFoundError: If input files don't exist.
         ProcessingError: If optimization fails.
+        EstimationCancelled: If cancel_event is set before completion.
     """
     import cv2
     from uuid import uuid4
@@ -484,7 +651,7 @@ async def run_estimation(
             camera_x=camera_params.x,
             camera_y=camera_params.y,
             distance=surface_distance,
-            resolution=1.0,  # Full resolution for accurate matching
+            resolution=surface_resolution,
         )
 
         # Generate initial simulation at full size
@@ -545,6 +712,7 @@ async def run_estimation(
                         and meta.get("spatial_thin_selection") == spatial_thin_selection
                         and meta.get("surface_distance") == surface_distance
                         and meta.get("simulation_min_distance") == simulation_min_distance
+                        and meta.get("surface_resolution", 1.0) == surface_resolution
                         and meta.get("target_w") == target_w
                         and meta.get("target_h") == target_h
                     ):
@@ -601,9 +769,10 @@ async def run_estimation(
 
             params_2nd = params_dict
             if phase1_targets:
+                _raise_if_cancelled(cancel_event)
                 log.append(f"Phase 1: Optimizing position/orientation ({optimizer})...")
                 if optimizer == "cma":
-                    opt = CMAOptimizer(gcps[["x", "y", "z"]], gcps[["u", "v"]], params_dict)
+                    opt = _make_cancellable(CMAOptimizer(gcps[["x", "y", "z"]], gcps[["u", "v"]], params_dict), cancel_event)
                     opt.set_target(phase1_targets)
                     try:
                         params_2nd, error = opt.optimize(
@@ -619,7 +788,7 @@ async def run_estimation(
                             step="optimization_phase1",
                         ) from e
                 else:  # lsq
-                    opt = LsqOptimizer(gcps[["x", "y", "z"]], gcps[["u", "v"]], params_dict)
+                    opt = _make_cancellable(LsqOptimizer(gcps[["x", "y", "z"]], gcps[["u", "v"]], params_dict), cancel_event)
                     opt.set_target(phase1_targets)
                     try:
                         params_2nd, error = opt.optimize(method="trf", max_nfev=max_generations)
@@ -653,6 +822,7 @@ async def run_estimation(
 
             # Two-stage: Phase 2 for distortion parameters
             if optimize_distortion or two_stage:
+                _raise_if_cancelled(cancel_event)
                 log.append("Phase 2: Re-matching with optimized parameters...")
 
                 # Generate new simulation with Phase 1 results
@@ -695,7 +865,7 @@ async def run_estimation(
                         phase2a_targets: list[str] = ["fov", "a1", "k1", "k2", "k3", "p1", "p2", "s1", "s3"]
 
                         if optimizer == "cma":
-                            opt2a = CMAOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2nd)
+                            opt2a = _make_cancellable(CMAOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2nd), cancel_event)
                             opt2a.set_target(phase2a_targets)
                             try:
                                 params_2a, error2a = opt2a.optimize(
@@ -711,7 +881,7 @@ async def run_estimation(
                                     step="optimization_phase2a",
                                 ) from e
                         else:
-                            opt2a = LsqOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2nd)
+                            opt2a = _make_cancellable(LsqOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2nd), cancel_event)
                             opt2a.set_target(phase2a_targets)
                             try:
                                 params_2a, error2a = opt2a.optimize(method="trf", max_nfev=max_generations)
@@ -744,7 +914,7 @@ async def run_estimation(
                         phase2b_targets: list[str] = ["k4", "k5", "k6", "s2", "s4"]
 
                         if optimizer == "cma":
-                            opt2b = CMAOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2a)
+                            opt2b = _make_cancellable(CMAOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2a), cancel_event)
                             opt2b.set_target(phase2b_targets)
                             try:
                                 # Phase 2b uses smaller population/generation since it optimizes fewer parameters
@@ -761,7 +931,7 @@ async def run_estimation(
                                     step="optimization_phase2b",
                                 ) from e
                         else:
-                            opt2b = LsqOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2a)
+                            opt2b = _make_cancellable(LsqOptimizer(gcps2[["x", "y", "z"]], gcps2[["u", "v"]], params_2a), cancel_event)
                             opt2b.set_target(phase2b_targets)
                             try:
                                 params_final, error2 = opt2b.optimize(method="trf", max_nfev=max_generations)
@@ -798,6 +968,7 @@ async def run_estimation(
                         pass
 
             # Generate final simulation image
+            _raise_if_cancelled(cancel_event)
             log.append("Generating final simulation image...")
             final_sim = generate_simulation(
                 geo=geo,
@@ -885,6 +1056,7 @@ async def generate_simulation_image(
                 camera_y=camera_params.y,
                 distance=surface_distance,
                 resolution=5.0,  # Use coarser resolution for preview
+                max_vertices=PREVIEW_SURFACE_VERTEX_BUDGET,
             )
 
             # Generate simulation image
@@ -1612,39 +1784,3 @@ def validate_matching_result(
             min_points_required=min_points_required,
             suggestions=suggestions,
         )
-
-
-def estimate_memory_requirement(
-    dsm_path: str,
-    distance: float,
-    resolution: float,
-) -> dict[str, float]:
-    """Estimate memory requirement for processing.
-
-    Args:
-        dsm_path: Path to DSM file.
-        distance: Processing distance from camera.
-        resolution: Surface mesh resolution.
-
-    Returns:
-        Dict with estimated_mb, recommended_resolution, and area_sq_km.
-    """
-    # Estimate based on area and resolution
-    area_meters = (2 * distance) ** 2  # Square area around camera
-    pixels = area_meters / (resolution ** 2)
-
-    # Rough estimate: each vertex needs ~100 bytes (position, color, etc.)
-    estimated_mb = (pixels * 100) / (1024 * 1024)
-
-    # If estimated > 4GB, suggest higher resolution
-    recommended_resolution = resolution
-    if estimated_mb > 4000:
-        # Calculate resolution needed for ~2GB
-        target_pixels = 2000 * 1024 * 1024 / 100
-        recommended_resolution = (area_meters / target_pixels) ** 0.5
-
-    return {
-        "estimated_mb": estimated_mb,
-        "recommended_resolution": recommended_resolution,
-        "area_sq_km": area_meters / 1_000_000,
-    }

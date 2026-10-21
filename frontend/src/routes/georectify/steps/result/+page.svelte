@@ -18,6 +18,8 @@
 	import type { EstimateRequest, EstimateResponse, OptimizerType, EstimationParams } from '$lib/types';
 
 	let isRunning = false;
+	// Aborting the request closes the connection, which cancels the backend run
+	let estimationAbort: AbortController | null = null;
 	let hasError = false;
 	let errorMessage = '';
 
@@ -135,6 +137,8 @@
 		wizardStore.setEstimationResult({ simulation: null, log: [], estimatedParams: null });
 
 		const effectiveTwoStage = twoStage || optimizeDistortion;
+		const abort = new AbortController();
+		estimationAbort = abort;
 
 		// Save current estimation parameters
 		// min_gcp_distance uses simulation_min_distance from matching step
@@ -169,6 +173,7 @@
 				spatial_thin_grid: matchingParams?.spatial_thin_grid,
 				spatial_thin_selection: matchingParams?.spatial_thin_selection,
 				surface_distance: matchingParams?.surface_distance,
+				surface_resolution: matchingParams?.surface_resolution,
 				simulation_min_distance: matchingParams?.simulation_min_distance,
 				optimize_position: optimizePosition,
 				optimize_orientation: optimizeOrientation,
@@ -177,7 +182,8 @@
 			};
 
 			const response = await api.post<EstimateResponse>('/api/georectify/estimate', request, {
-				timeout: ESTIMATION_TIMEOUT_MS
+				timeout: ESTIMATION_TIMEOUT_MS,
+				signal: abort.signal
 			});
 
 			simulationImage = `data:image/png;base64,${response.simulation_base64}`;
@@ -206,9 +212,12 @@
 
 			wizardStore.completeStep(3);
 		} catch (err) {
+			// Left the page: the run was cancelled on purpose, nothing to report
+			if (abort.signal.aborted) return;
 			hasError = true;
 			errorMessage = err instanceof Error ? err.message : t('error.estimationFailed');
 		} finally {
+			if (estimationAbort === abort) estimationAbort = null;
 			isRunning = false;
 		}
 	}
@@ -224,6 +233,7 @@
 	}
 
 	onDestroy(() => {
+		estimationAbort?.abort();
 		if (targetObjectUrl) {
 			URL.revokeObjectURL(targetObjectUrl);
 		}

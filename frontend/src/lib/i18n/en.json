@@ -102,7 +102,7 @@
   "rendering": {
     "title": "Rendering Settings",
     "maxDistance": "Max Distance (m)",
-    "maxDistanceHint": "Maximum distance to render in simulation",
+    "maxDistanceHint": "Maximum distance to render in simulation. Distant areas are automatically rendered at a coarser resolution to limit memory use.",
     "minDistance": "Min Distance (m)",
     "minDistanceHint": "Exclude areas too close to camera"
   },
@@ -129,6 +129,8 @@
     "resize": "Resize",
     "threshold": "Threshold",
     "thresholdHelp": "Threshold (px) for fundamental-matrix-based outlier detection. Increase it if correspondences cannot be found near image edges (e.g., with strong lens distortion).",
+    "surfaceResolution": "Surface Resolution (m/pixel)",
+    "surfaceResolutionHelp": "Resolution near the camera. Smaller values produce more detail; distant areas are automatically coarsened to fit in memory.",
     "run": "Run Matching",
     "running": "Matching...",
     "modelDownloadNotice": "Downloading matching model (only on first run)",
